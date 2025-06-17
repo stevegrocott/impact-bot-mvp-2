@@ -15,6 +15,7 @@ import organizationRoutes from './organizations';
 import adminRoutes from './admin';
 import { theoryOfChangeRoutes } from './theoryOfChangeRoutes';
 import { pitfallDetectionRoutes } from './pitfallDetectionRoutes';
+import { decisionMappingRoutes } from './decisionMappingRoutes';
 
 const router = Router();
 
@@ -60,5 +61,8 @@ router.use('/theory-of-change', theoryOfChangeRoutes);
 
 // Pitfall Detection routes (AI-powered prevention)
 router.use('/pitfall-detection', pitfallDetectionRoutes);
+
+// Decision Mapping routes (what decisions will this data inform?)
+router.use('/decision-mapping', decisionMappingRoutes);
 
 export default router;

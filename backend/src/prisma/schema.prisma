@@ -118,6 +118,7 @@ model IrisKeyIndicator {
   coreMetricSetIndicators     IrisCoreMetricSetIndicator[]
   indicatorDataRequirements   IrisIndicatorDataRequirement[]
   userMeasurements            UserMeasurement[]
+  indicatorUtilities          IndicatorUtility[]
 
   @@map("iris_key_indicators")
 }
@@ -375,6 +376,9 @@ model Organization {
   userReports         UserReport[]
   conversations       Conversation[]
   theoryOfChange      OrganizationTheoryOfChange?
+  decisionQuestions   DecisionQuestion[]
+  minimumViableMeasurements MinimumViableMeasurement[]
+  auditLogs           AuditLog[]
 
   @@map("organizations")
 }
@@ -403,8 +407,8 @@ model User {
   conversations          Conversation[]
   auditLogs              AuditLog[]
   createdTheoriesOfChange OrganizationTheoryOfChange[]
-  createdDecisionMappings DecisionMapping[]
   decisionEvolutions     DecisionEvolution[]
+  approvedMVMs           MinimumViableMeasurement[] @relation("ApprovedMVM")
 
   @@map("users")
 }
@@ -731,4 +735,97 @@ model DataSyncStatus {
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("data_sync_status")
+}
+
+// ============================================================================
+// DECISION MAPPING LAYER - "What decisions will this data inform?"
+// ============================================================================
+
+model DecisionQuestion {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  question            String    @db.Text
+  decisionType        String    @map("decision_type") @db.VarChar(50) // strategic, operational, tactical, adaptive
+  stakeholders        Json      @default("[]") @db.JsonB
+  frequency           String    @default("quarterly") @db.VarChar(50) // ongoing, quarterly, annually, one-time
+  urgency             String    @default("medium") @db.VarChar(20) // low, medium, high, critical
+  evidenceNeeds       Json      @default("[]") @map("evidence_needs") @db.JsonB
+  currentDataSources  Json      @default("[]") @map("current_data_sources") @db.JsonB
+  dataGaps            Json      @default("[]") @map("data_gaps") @db.JsonB
+  status              String    @default("active") @db.VarChar(20) // active, resolved, archived
+  resolvedAt          DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolutionReason    String?   @map("resolution_reason") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  evolution          DecisionEvolution[]
+  indicatorUtilities IndicatorUtility[]
+
+  @@map("decision_questions")
+}
+
+model DecisionEvolution {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  decisionQuestionId String   @map("decision_question_id") @db.Uuid
+  changeType         String   @map("change_type") @db.VarChar(50) // question_refined, evidence_added, data_source_changed, decision_resolved
+  previousState      Json     @map("previous_state") @db.JsonB
+  newState           Json     @map("new_state") @db.JsonB
+  changeReason       String   @map("change_reason") @db.Text
+  changedBy          String   @map("changed_by") @db.Uuid
+  impact             String   @default("medium") @db.VarChar(20) // low, medium, high
+  changedAt          DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  // Relationships
+  decisionQuestion DecisionQuestion @relation(fields: [decisionQuestionId], references: [id], onDelete: Cascade)
+  changedByUser    User             @relation(fields: [changedBy], references: [id])
+
+  @@map("decision_evolution")
+}
+
+model IndicatorUtility {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  indicatorId          String   @map("indicator_id") @db.Uuid
+  decisionQuestionId   String   @map("decision_question_id") @db.Uuid
+  utilityScore         Int      @map("utility_score") // 0-100
+  directlyInforms      Boolean  @default(false) @map("directly_informs")
+  indirectlySupports   Boolean  @default(false) @map("indirectly_supports")
+  redundancyRisk       Int      @default(0) @map("redundancy_risk") // 0-100
+  dataQualityNeeds     Json     @map("data_quality_needs") @db.JsonB
+  costBenefitRatio     Decimal? @map("cost_benefit_ratio") @db.Decimal(10, 2)
+  recommendations      Json     @default("[]") @db.JsonB
+  assessedAt           DateTime @default(now()) @map("assessed_at") @db.Timestamptz(6)
+  
+  // Relationships
+  indicator        IrisKeyIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  decisionQuestion DecisionQuestion @relation(fields: [decisionQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([indicatorId, decisionQuestionId])
+  @@map("indicator_utilities")
+}
+
+model MinimumViableMeasurement {
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  decisionQuestionIds    Json      @map("decision_question_ids") @db.JsonB
+  essentialIndicators    Json      @map("essential_indicators") @db.JsonB
+  optionalIndicators     Json      @map("optional_indicators") @db.JsonB
+  customIndicatorsNeeded Json      @map("custom_indicators_needed") @db.JsonB
+  measurementBurden      Json      @map("measurement_burden") @db.JsonB
+  phaseApproach          Json      @map("phase_approach") @db.JsonB
+  warningFlags           Json      @default("[]") @map("warning_flags") @db.JsonB
+  implementationNotes    String?   @map("implementation_notes") @db.Text
+  reviewSchedule         String?   @map("review_schedule") @db.VarChar(50)
+  status                 String    @default("draft") @db.VarChar(20) // draft, approved, implemented
+  approvedBy             String?   @map("approved_by") @db.Uuid
+  approvedAt             DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvedByUser User?      @relation("ApprovedMVM", fields: [approvedBy], references: [id])
+
+  @@map("minimum_viable_measurements")
 }
