@@ -6,6 +6,9 @@ import { useAuth } from './shared/hooks/useAuth';
 import AppLayout from './layouts/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
+import FoundationDashboard from './pages/FoundationDashboard';
+import IndicatorSelection from './pages/IndicatorSelection';
+import { TheoryOfChangeCapture } from './modules/onboarding/components/TheoryOfChangeCapture';
 import './App.css';
 
 // Auth wrapper component
@@ -79,13 +82,47 @@ const AppRoutes: React.FC = () => {
         }
       />
       
+      {/* Foundation and onboarding routes */}
+      <Route
+        path="/foundation"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <FoundationDashboard />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/foundation/theory-of-change"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <TheoryOfChangeCapture />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/foundation/readiness"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <div>Foundation Readiness Dashboard (TODO)</div>
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
       {/* Indicators module routes */}
       <Route
         path="/indicators"
         element={
           <ProtectedRoute>
             <AppLayout>
-              <div>Indicators Module (TODO)</div>
+              <IndicatorSelection />
             </AppLayout>
           </ProtectedRoute>
         }
