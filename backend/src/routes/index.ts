@@ -13,6 +13,8 @@ import reportRoutes from './reports';
 import userRoutes from './users';
 import organizationRoutes from './organizations';
 import adminRoutes from './admin';
+import { theoryOfChangeRoutes } from './theoryOfChangeRoutes';
+import { pitfallDetectionRoutes } from './pitfallDetectionRoutes';
 
 const router = Router();
 
@@ -52,5 +54,11 @@ router.use('/reports', reportRoutes);
 
 // Admin routes (restricted access)
 router.use('/admin', adminRoutes);
+
+// Theory of Change routes (foundation-first measurement design)
+router.use('/theory-of-change', theoryOfChangeRoutes);
+
+// Pitfall Detection routes (AI-powered prevention)
+router.use('/pitfall-detection', pitfallDetectionRoutes);
 
 export default router;
