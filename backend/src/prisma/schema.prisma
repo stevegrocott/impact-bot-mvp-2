@@ -374,6 +374,7 @@ model Organization {
   userMeasurements    UserMeasurement[]
   userReports         UserReport[]
   conversations       Conversation[]
+  theoryOfChange      OrganizationTheoryOfChange?
 
   @@map("organizations")
 }
@@ -401,6 +402,9 @@ model User {
   userReports            UserReport[]
   conversations          Conversation[]
   auditLogs              AuditLog[]
+  createdTheoriesOfChange OrganizationTheoryOfChange[]
+  createdDecisionMappings DecisionMapping[]
+  decisionEvolutions     DecisionEvolution[]
 
   @@map("users")
 }
@@ -460,6 +464,102 @@ model UserCustomIndicator {
   userMeasurements   UserMeasurement[]
 
   @@map("user_custom_indicators")
+}
+
+// ============================================================================
+// THEORY OF CHANGE & FOUNDATION LAYER - Pitfall Prevention Core
+// ============================================================================
+
+model OrganizationTheoryOfChange {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId      String    @unique @map("organization_id") @db.Uuid
+  targetPopulation    String?   @map("target_population") @db.Text
+  problemDefinition   String?   @map("problem_definition") @db.Text
+  activities          Json      @default("[]") @db.JsonB
+  outputs             Json      @default("[]") @db.JsonB
+  shortTermOutcomes   Json      @default("[]") @map("short_term_outcomes") @db.JsonB
+  longTermOutcomes    Json      @default("[]") @map("long_term_outcomes") @db.JsonB
+  impacts             Json      @default("[]") @db.JsonB
+  assumptions         Json      @default("[]") @db.JsonB
+  externalFactors     Json      @default("[]") @map("external_factors") @db.JsonB
+  interventionType    String?   @map("intervention_type") @db.VarChar(100)
+  sector              String?   @db.VarChar(100)
+  geographicScope     String?   @map("geographic_scope") @db.VarChar(200)
+  status              String    @default("draft") @db.VarChar(50) // draft, complete, archived
+  version             Int       @default(1)
+  createdBy           String    @map("created_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator             User                       @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  foundationReadiness FoundationReadiness?
+  decisionMappings    DecisionMapping[]
+
+  @@map("organization_theory_of_change")
+}
+
+model FoundationReadiness {
+  id                      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  theoryOfChangeId        String    @unique @map("theory_of_change_id") @db.Uuid
+  completenessScore       Int       @map("completeness_score") // 0-100
+  readinessLevel          String    @map("readiness_level") @db.VarChar(50) // insufficient, basic, good, excellent
+  missingElements         Json      @default("[]") @map("missing_elements") @db.JsonB
+  strengthAreas           Json      @default("[]") @map("strength_areas") @db.JsonB
+  recommendations         Json      @default("[]") @db.JsonB
+  allowsBasicAccess       Boolean   @default(false) @map("allows_basic_access")
+  allowsIntermediateAccess Boolean  @default(false) @map("allows_intermediate_access")
+  allowsAdvancedAccess    Boolean   @default(false) @map("allows_advanced_access")
+  lastAssessedAt          DateTime  @default(now()) @map("last_assessed_at") @db.Timestamptz(6)
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  theoryOfChange  OrganizationTheoryOfChange @relation(fields: [theoryOfChangeId], references: [id], onDelete: Cascade)
+
+  @@map("foundation_readiness")
+}
+
+model DecisionMapping {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  theoryOfChangeId      String    @map("theory_of_change_id") @db.Uuid
+  decisionQuestion      String    @map("decision_question") @db.Text // "What decisions will this data inform?"
+  decisionType          String    @map("decision_type") @db.VarChar(100) // strategic, operational, reporting, funding
+  evidenceRequired      Json      @default("[]") @map("evidence_required") @db.JsonB
+  indicatorsNeeded      Json      @default("[]") @map("indicators_needed") @db.JsonB
+  stakeholders          Json      @default("[]") @db.JsonB
+  timeframe             String?   @db.VarChar(100)
+  importance            Int       @default(1) // 1-5 priority score
+  status                String    @default("active") @db.VarChar(50)
+  createdBy             String    @map("created_by") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  theoryOfChange        OrganizationTheoryOfChange @relation(fields: [theoryOfChangeId], references: [id], onDelete: Cascade)
+  creator               User                       @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  decisionEvolutions    DecisionEvolution[]
+
+  @@map("decision_mappings")
+}
+
+model DecisionEvolution {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  decisionMappingId String    @map("decision_mapping_id") @db.Uuid
+  changeType        String    @map("change_type") @db.VarChar(100) // added, modified, removed, refined
+  changeDescription String    @map("change_description") @db.Text
+  previousValue     Json?     @map("previous_value") @db.JsonB
+  newValue          Json?     @map("new_value") @db.JsonB
+  reason            String?   @db.Text
+  changedBy         String    @map("changed_by") @db.Uuid
+  changedAt         DateTime  @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  // Relationships
+  decisionMapping   DecisionMapping @relation(fields: [decisionMappingId], references: [id], onDelete: Cascade)
+  changer           User            @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@map("decision_evolution")
 }
 
 model UserMeasurement {
