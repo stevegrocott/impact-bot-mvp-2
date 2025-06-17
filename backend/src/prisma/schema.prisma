@@ -379,6 +379,11 @@ model Organization {
   decisionQuestions   DecisionQuestion[]
   minimumViableMeasurements MinimumViableMeasurement[]
   foundationBypassRequests FoundationBypassRequest[]
+  userBehaviorEvents  UserBehaviorEvent[]
+  behaviorInsights    BehaviorInsight[]
+  analyticsMetrics    AnalyticsMetric[]
+  pitfallWarningEvents PitfallWarningEvent[]
+  userSessions        UserSession[]
   auditLogs           AuditLog[]
 
   @@map("organizations")
@@ -412,6 +417,9 @@ model User {
   approvedMVMs           MinimumViableMeasurement[] @relation("ApprovedMVM")
   requestedBypassRequests FoundationBypassRequest[] @relation("RequestedBypassRequests")
   reviewedBypassRequests FoundationBypassRequest[] @relation("ReviewedBypassRequests")
+  behaviorEvents         UserBehaviorEvent[]
+  pitfallWarnings        PitfallWarningEvent[]
+  userSessions           UserSession[]
 
   @@map("users")
 }
@@ -853,4 +861,126 @@ model FoundationBypassRequest {
   reviewedByUser User?     @relation("ReviewedBypassRequests", fields: [reviewedBy], references: [id])
 
   @@map("foundation_bypass_requests")
+}
+
+// ============================================================================
+// USER BEHAVIOR ANALYTICS LAYER - Learn from user behavior at scale
+// ============================================================================
+
+model UserBehaviorEvent {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  sessionId        String   @map("session_id") @db.VarChar(255)
+  eventType        String   @map("event_type") @db.VarChar(100)
+  eventData        Json     @default("{}") @map("event_data") @db.JsonB
+  contextData      Json     @default("{}") @map("context_data") @db.JsonB
+  processingStatus String   @default("pending") @map("processing_status") @db.VarChar(20) // pending, processed, failed
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz(6)
+  timestamp        DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, eventType])
+  @@index([userId, sessionId])
+  @@index([timestamp])
+  @@index([eventType, timestamp])
+  @@map("user_behavior_events")
+}
+
+model BehaviorInsight {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId   String?  @map("organization_id") @db.Uuid // null for cross-org insights
+  insightType      String   @map("insight_type") @db.VarChar(50) // pathway_optimization, friction_point, success_pattern, pitfall_effectiveness
+  title            String   @db.VarChar(255)
+  description      String   @db.Text
+  metrics          Json     @default("{}") @db.JsonB
+  recommendations  Json     @default("[]") @db.JsonB
+  impact           String   @db.VarChar(20) // low, medium, high
+  confidence       Decimal  @db.Decimal(3, 2) // 0.00-1.00
+  affectedUsers    Int      @default(0) @map("affected_users")
+  status           String   @default("active") @db.VarChar(20) // active, archived, implemented
+  implementedAt    DateTime? @map("implemented_at") @db.Timestamptz(6)
+  generatedAt      DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  validUntil       DateTime? @map("valid_until") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([insightType, impact])
+  @@index([generatedAt])
+  @@index([status, validUntil])
+  @@map("behavior_insights")
+}
+
+model AnalyticsMetric {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid // null for global metrics
+  metricName     String   @map("metric_name") @db.VarChar(100)
+  metricType     String   @map("metric_type") @db.VarChar(50) // counter, gauge, rate, distribution
+  value          Decimal  @db.Decimal(15, 4)
+  dimensions     Json     @default("{}") @db.JsonB // additional categorization
+  timeWindow     String   @map("time_window") @db.VarChar(20) // hour, day, week, month
+  calculatedAt   DateTime @default(now()) @map("calculated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, metricName, timeWindow, calculatedAt])
+  @@index([metricName, timeWindow])
+  @@index([calculatedAt])
+  @@map("analytics_metrics")
+}
+
+model PitfallWarningEvent {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  sessionId      String   @map("session_id") @db.VarChar(255)
+  warningType    String   @map("warning_type") @db.VarChar(100) // activity_vs_impact, proxy_metric, over_engineering, portfolio_balance
+  warningMessage String   @map("warning_message") @db.Text
+  indicatorIds   Json     @default("[]") @map("indicator_ids") @db.JsonB
+  userAction     String?  @map("user_action") @db.VarChar(50) // dismissed, acted_upon, ignored
+  actionData     Json?    @map("action_data") @db.JsonB
+  shownAt        DateTime @default(now()) @map("shown_at") @db.Timestamptz(6)
+  actionTakenAt  DateTime? @map("action_taken_at") @db.Timestamptz(6)
+  
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, warningType])
+  @@index([warningType, userAction])
+  @@index([shownAt])
+  @@map("pitfall_warning_events")
+}
+
+model UserSession {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sessionId        String    @unique @map("session_id") @db.VarChar(255)
+  organizationId   String    @map("organization_id") @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  foundationLevel  String?   @map("foundation_level") @db.VarChar(20) // insufficient, basic, intermediate, advanced
+  startedAt        DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  endedAt          DateTime? @map("ended_at") @db.Timestamptz(6)
+  durationMinutes  Int?      @map("duration_minutes")
+  pagesVisited     Int       @default(0) @map("pages_visited")
+  eventsCount      Int       @default(0) @map("events_count")
+  foundationCompleted Boolean @default(false) @map("foundation_completed")
+  indicatorsSelected Int     @default(0) @map("indicators_selected")
+  warningsShown    Int       @default(0) @map("warnings_shown")
+  warningsActedOn  Int       @default(0) @map("warnings_acted_on")
+  userAgent        String?   @map("user_agent") @db.Text
+  ipAddress        String?   @map("ip_address") @db.Inet
+  
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startedAt])
+  @@index([userId, startedAt])
+  @@index([foundationLevel])
+  @@map("user_sessions")
 }
