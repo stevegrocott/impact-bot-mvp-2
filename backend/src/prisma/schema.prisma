@@ -378,6 +378,7 @@ model Organization {
   theoryOfChange      OrganizationTheoryOfChange?
   decisionQuestions   DecisionQuestion[]
   minimumViableMeasurements MinimumViableMeasurement[]
+  foundationBypassRequests FoundationBypassRequest[]
   auditLogs           AuditLog[]
 
   @@map("organizations")
@@ -409,6 +410,8 @@ model User {
   createdTheoriesOfChange OrganizationTheoryOfChange[]
   decisionEvolutions     DecisionEvolution[]
   approvedMVMs           MinimumViableMeasurement[] @relation("ApprovedMVM")
+  requestedBypassRequests FoundationBypassRequest[] @relation("RequestedBypassRequests")
+  reviewedBypassRequests FoundationBypassRequest[] @relation("ReviewedBypassRequests")
 
   @@map("users")
 }
@@ -828,4 +831,26 @@ model MinimumViableMeasurement {
   approvedByUser User?      @relation("ApprovedMVM", fields: [approvedBy], references: [id])
 
   @@map("minimum_viable_measurements")
+}
+
+model FoundationBypassRequest {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  requestedBy    String    @map("requested_by") @db.Uuid
+  feature        String    @db.VarChar(100)
+  justification  String    @db.Text
+  urgency        String    @default("medium") @db.VarChar(20) // low, medium, high
+  temporaryUse   Boolean   @default(true) @map("temporary_use")
+  status         String    @default("pending") @db.VarChar(20) // pending, approved, denied
+  reviewedBy     String?   @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requestedByUser User      @relation("RequestedBypassRequests", fields: [requestedBy], references: [id])
+  reviewedByUser User?     @relation("ReviewedBypassRequests", fields: [reviewedBy], references: [id])
+
+  @@map("foundation_bypass_requests")
 }

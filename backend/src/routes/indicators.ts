@@ -8,6 +8,7 @@ import * as indicatorSelectionController from '@/controllers/indicatorSelectionC
 import { authMiddleware } from '@/middleware/auth';
 import { rateLimitMiddleware } from '@/middleware/rateLimit';
 import { validateRequest } from '@/middleware/validation';
+import { phaseGates } from '@/middleware/phaseGateMiddleware';
 import Joi from 'joi';
 
 const router = Router();
@@ -55,6 +56,7 @@ router.use(authMiddleware);
  */
 router.post(
   '/select',
+  phaseGates.requireBasicFoundation, // PHASE GATE: Require theory of change before indicator selection
   rateLimitMiddleware({ windowMs: 60 * 60 * 1000, max: 20, keyGenerator: 'user' }),
   validateRequest(indicatorSelectionSchema),
   indicatorSelectionController.saveSelectedIndicators

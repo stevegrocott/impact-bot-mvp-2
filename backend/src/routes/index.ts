@@ -16,6 +16,7 @@ import adminRoutes from './admin';
 import { theoryOfChangeRoutes } from './theoryOfChangeRoutes';
 import { pitfallDetectionRoutes } from './pitfallDetectionRoutes';
 import { decisionMappingRoutes } from './decisionMappingRoutes';
+import { foundationRoutes } from './foundationRoutes';
 
 const router = Router();
 
@@ -64,5 +65,8 @@ router.use('/pitfall-detection', pitfallDetectionRoutes);
 
 // Decision Mapping routes (what decisions will this data inform?)
 router.use('/decision-mapping', decisionMappingRoutes);
+
+// Foundation readiness routes (phase-gated access control)
+router.use('/foundation', foundationRoutes);
 
 export default router;
