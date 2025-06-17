@@ -1,0 +1,97 @@
+{
+  "name": "impact-bot-v2-backend",
+  "version": "2.0.0",
+  "description": "Production-ready backend API for Impact Bot v2 platform",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "health:db": "tsx src/scripts/health-check.ts",
+    "sync:airtable": "tsx src/scripts/sync-airtable.ts",
+    "refresh:views": "tsx src/scripts/refresh-views.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.6.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "joi": "^17.11.0",
+    "redis": "^4.6.10",
+    "winston": "^3.11.0",
+    "express-winston": "^4.2.0",
+    "dotenv": "^16.3.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "reflect-metadata": "^0.1.13",
+    "@anthropic-ai/sdk": "^0.24.3",
+    "date-fns": "^2.30.0",
+    "uuid": "^9.0.1",
+    "multer": "^1.4.5-lts.1",
+    "express-async-errors": "^3.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.9.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^9.0.7",
+    "@types/multer": "^1.4.11",
+    "@types/jest": "^29.5.8",
+    "@types/supertest": "^2.0.16",
+    "typescript": "^5.2.2",
+    "tsx": "^4.1.4",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "prettier": "^3.1.0",
+    "prisma": "^5.6.0"
+  },
+  "prisma": {
+    "schema": "src/prisma/schema-hybrid.prisma"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": ["<rootDir>/src"],
+    "testMatch": ["**/__tests__/**/*.test.ts"],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/prisma/**",
+      "!src/scripts/**"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "impact-measurement",
+    "iris+",
+    "sustainability",
+    "api",
+    "typescript",
+    "postgresql"
+  ],
+  "author": "Impact Bot Team",
+  "license": "MIT"
+}

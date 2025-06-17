@@ -1,0 +1,172 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with pgvector extension for hybrid search
+  database:
+    image: pgvector/pgvector:pg16
+    container_name: impactbot-v2-database
+    environment:
+      POSTGRES_DB: impactbot_v2
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_production_password_2024}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5434:5432"  # Different port to avoid conflicts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema-hybrid.sql:/docker-entrypoint-initdb.d/01-schema-hybrid.sql
+      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
+    command: >
+      postgres 
+      -c shared_preload_libraries='pg_stat_statements,vector'
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d impactbot_v2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Caching and Session Management
+  cache:
+    image: redis:7-alpine
+    container_name: impactbot-v2-cache
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API Server - Node.js/Express
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: impactbot-v2-backend
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-secure_production_password_2024}@database:5432/impactbot_v2
+      REDIS_URL: redis://cache:6379
+      AIRTABLE_TOKEN: ${AIRTABLE_TOKEN}
+      AIRTABLE_BASE_ID: app8JW20fqXYI2uRw
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_here}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      PORT: 3001
+      LOG_LEVEL: info
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend - React Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: impactbot-v2-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:3001
+      REACT_APP_VERSION: 2.0.0
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Data Sync Service - Airtable Integration
+  data-sync:
+    build:
+      context: ./data-sync
+      dockerfile: Dockerfile
+    container_name: impactbot-v2-data-sync
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-secure_production_password_2024}@database:5432/impactbot_v2
+      AIRTABLE_TOKEN: ${AIRTABLE_TOKEN}
+      AIRTABLE_BASE_ID: app8JW20fqXYI2uRw
+      SYNC_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      LOG_LEVEL: info
+    volumes:
+      - ./data-sync/logs:/app/logs
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Monitoring - Prometheus & Grafana (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: impactbot-v2-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: impactbot-v2-grafana
+    ports:
+      - "3010:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    restart: unless-stopped
+    profiles: ["monitoring"]
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  default:
+    name: impactbot-v2-network

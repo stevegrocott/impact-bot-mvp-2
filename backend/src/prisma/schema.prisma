@@ -1,0 +1,634 @@
+// Prisma schema for Impact Bot v2
+// Optimized for production scale and LLM training
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["views", "fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuidOssp(map: "uuid-ossp"), pg_trgm, btree_gin]
+}
+
+// ============================================================================
+// REFERENCE DATA LAYER - IRIS+ Framework
+// ============================================================================
+
+model IrisImpactCategory {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  themes IrisImpactTheme[]
+
+  @@map("iris_impact_categories")
+}
+
+model IrisImpactTheme {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  categoryId  String   @map("category_id") @db.Uuid
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  category   IrisImpactCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  themeGoals IrisThemeGoal[]
+
+  @@map("iris_impact_themes")
+}
+
+model IrisStrategicGoal {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  name        String   @db.VarChar(500)
+  description String?  @db.Text
+  definition  String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  themeGoals          IrisThemeGoal[]
+  goalSdgs            IrisGoalSdg[]
+  goalKeyDimensions   IrisGoalKeyDimension[]
+  userMeasurements    UserMeasurement[]
+
+  @@map("iris_strategic_goals")
+}
+
+model IrisKeyDimension {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  purpose     String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  goalKeyDimensions            IrisGoalKeyDimension[]
+  keyDimensionCoreMetricSets   IrisKeyDimensionCoreMetricSet[]
+
+  @@map("iris_key_dimensions")
+}
+
+model IrisCoreMetricSet {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  purpose     String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  keyDimensionCoreMetricSets IrisKeyDimensionCoreMetricSet[]
+  coreMetricSetIndicators    IrisCoreMetricSetIndicator[]
+
+  @@map("iris_core_metric_sets")
+}
+
+model IrisKeyIndicator {
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId              String   @unique @map("airtable_id") @db.VarChar(255)
+  name                    String   @db.VarChar(500)
+  description             String?  @db.Text
+  calculationGuidance     String?  @map("calculation_guidance") @db.Text
+  whyImportant            String?  @map("why_important") @db.Text
+  dataCollectionFrequency String?  @map("data_collection_frequency") @db.VarChar(100)
+  complexityLevel         String   @default("intermediate") @map("complexity_level") @db.VarChar(50)
+  sortOrder               Int      @default(0) @map("sort_order")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  coreMetricSetIndicators     IrisCoreMetricSetIndicator[]
+  indicatorDataRequirements   IrisIndicatorDataRequirement[]
+  userMeasurements            UserMeasurement[]
+
+  @@map("iris_key_indicators")
+}
+
+model IrisDataRequirement {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId         String   @unique @map("airtable_id") @db.VarChar(255)
+  irisCode           String?  @map("iris_code") @db.VarChar(100)
+  name               String   @db.VarChar(255)
+  description        String?  @db.Text
+  definition         String?  @db.Text
+  calculation        String?  @db.Text
+  usageGuidance      String?  @map("usage_guidance") @db.Text
+  dataType           String?  @map("data_type") @db.VarChar(100)
+  unitOfMeasurement  String?  @map("unit_of_measurement") @db.VarChar(100)
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  indicatorDataRequirements        IrisIndicatorDataRequirement[]
+  dataRequirementFieldTypes        IrisDataRequirementFieldType[]
+  dataRequirementOptions           IrisDataRequirementOption[]
+
+  @@map("iris_data_requirements")
+}
+
+// SDG Reference Data
+model SustainableDevelopmentGoal {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  sdgNumber   Int      @unique @map("sdg_number")
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  colorHex    String?  @map("color_hex") @db.VarChar(7)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  targets    SdgTarget[]
+  goalSdgs   IrisGoalSdg[]
+
+  @@map("sustainable_development_goals")
+}
+
+model SdgTarget {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
+  targetCode  String   @map("target_code") @db.VarChar(20)
+  name        String   @db.VarChar(500)
+  description String?  @db.Text
+  sdgId       String   @map("sdg_id") @db.Uuid
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  sdg        SustainableDevelopmentGoal @relation(fields: [sdgId], references: [id], onDelete: Cascade)
+  indicators SdgIndicator[]
+
+  @@map("sdg_targets")
+}
+
+model SdgIndicator {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId    String   @unique @map("airtable_id") @db.VarChar(255)
+  indicatorCode String   @map("indicator_code") @db.VarChar(50)
+  name          String   @db.VarChar(500)
+  description   String?  @db.Text
+  targetId      String   @map("target_id") @db.Uuid
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  target SdgTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@map("sdg_indicators")
+}
+
+// Metadata tables
+model MetricFieldType {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId      String   @unique @map("airtable_id") @db.VarChar(255)
+  name            String   @db.VarChar(100)
+  description     String?  @db.Text
+  validationRules Json?    @map("validation_rules") @db.JsonB
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  dataRequirementFieldTypes IrisDataRequirementFieldType[]
+
+  @@map("metric_field_types")
+}
+
+model MetricOption {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  airtableId    String   @unique @map("airtable_id") @db.VarChar(255)
+  name          String   @db.VarChar(255)
+  valueType     String?  @map("value_type") @db.VarChar(100)
+  allowedValues Json?    @map("allowed_values") @db.JsonB
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  dataRequirementOptions IrisDataRequirementOption[]
+
+  @@map("metric_options")
+}
+
+// ============================================================================
+// JUNCTION TABLES - Many-to-Many Relationships
+// ============================================================================
+
+model IrisThemeGoal {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  themeId              String   @map("theme_id") @db.Uuid
+  goalId               String   @map("goal_id") @db.Uuid
+  relationshipStrength Int      @default(1) @map("relationship_strength")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  theme IrisImpactTheme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  goal  IrisStrategicGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([themeId, goalId])
+  @@map("iris_theme_goals")
+}
+
+model IrisGoalSdg {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  goalId            String   @map("goal_id") @db.Uuid
+  sdgId             String   @map("sdg_id") @db.Uuid
+  alignmentStrength Int      @default(1) @map("alignment_strength")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  goal IrisStrategicGoal           @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  sdg  SustainableDevelopmentGoal @relation(fields: [sdgId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, sdgId])
+  @@map("iris_goal_sdgs")
+}
+
+model IrisGoalKeyDimension {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  goalId         String   @map("goal_id") @db.Uuid
+  keyDimensionId String   @map("key_dimension_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  goal         IrisStrategicGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  keyDimension IrisKeyDimension  @relation(fields: [keyDimensionId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, keyDimensionId])
+  @@map("iris_goal_key_dimensions")
+}
+
+model IrisKeyDimensionCoreMetricSet {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  keyDimensionId   String   @map("key_dimension_id") @db.Uuid
+  coreMetricSetId  String   @map("core_metric_set_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  keyDimension    IrisKeyDimension    @relation(fields: [keyDimensionId], references: [id], onDelete: Cascade)
+  coreMetricSet   IrisCoreMetricSet   @relation(fields: [coreMetricSetId], references: [id], onDelete: Cascade)
+
+  @@unique([keyDimensionId, coreMetricSetId])
+  @@map("iris_key_dimension_core_metric_sets")
+}
+
+model IrisCoreMetricSetIndicator {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  coreMetricSetId String   @map("core_metric_set_id") @db.Uuid
+  indicatorId     String   @map("indicator_id") @db.Uuid
+  priorityLevel   Int      @default(1) @map("priority_level")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  coreMetricSet IrisCoreMetricSet @relation(fields: [coreMetricSetId], references: [id], onDelete: Cascade)
+  indicator     IrisKeyIndicator  @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+
+  @@unique([coreMetricSetId, indicatorId])
+  @@map("iris_core_metric_set_indicators")
+}
+
+model IrisIndicatorDataRequirement {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  indicatorId        String   @map("indicator_id") @db.Uuid
+  dataRequirementId  String   @map("data_requirement_id") @db.Uuid
+  isRequired         Boolean  @default(true) @map("is_required")
+  calculationWeight  Decimal  @default(1.0) @map("calculation_weight") @db.Decimal(5, 2)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  indicator       IrisKeyIndicator     @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+  dataRequirement IrisDataRequirement @relation(fields: [dataRequirementId], references: [id], onDelete: Cascade)
+
+  @@unique([indicatorId, dataRequirementId])
+  @@map("iris_indicator_data_requirements")
+}
+
+model IrisDataRequirementFieldType {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  dataRequirementId String   @map("data_requirement_id") @db.Uuid
+  fieldTypeId       String   @map("field_type_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  dataRequirement IrisDataRequirement @relation(fields: [dataRequirementId], references: [id], onDelete: Cascade)
+  fieldType       MetricFieldType     @relation(fields: [fieldTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([dataRequirementId, fieldTypeId])
+  @@map("iris_data_requirement_field_types")
+}
+
+model IrisDataRequirementOption {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  dataRequirementId String   @map("data_requirement_id") @db.Uuid
+  optionId          String   @map("option_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  dataRequirement IrisDataRequirement @relation(fields: [dataRequirementId], references: [id], onDelete: Cascade)
+  option          MetricOption        @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([dataRequirementId, optionId])
+  @@map("iris_data_requirement_options")
+}
+
+// ============================================================================
+// USER/ORGANIZATION LAYER - Multi-tenant User Data
+// ============================================================================
+
+model Organization {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name         String   @db.VarChar(255)
+  description  String?  @db.Text
+  industry     String?  @db.VarChar(100)
+  sizeCategory String?  @map("size_category") @db.VarChar(50)
+  country      String?  @db.VarChar(100)
+  website      String?  @db.VarChar(255)
+  settings     Json     @default("{}") @db.JsonB
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  userOrganizations   UserOrganization[]
+  userCustomIndicators UserCustomIndicator[]
+  userMeasurements    UserMeasurement[]
+  userReports         UserReport[]
+  conversations       Conversation[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+  firstName    String?   @map("first_name") @db.VarChar(100)
+  lastName     String?   @map("last_name") @db.VarChar(100)
+  jobTitle     String?   @map("job_title") @db.VarChar(255)
+  phone        String?   @db.VarChar(50)
+  preferences  Json      @default("{}") @db.JsonB
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  userOrganizations      UserOrganization[]
+  createdCustomIndicators UserCustomIndicator[] @relation("CreatedBy")
+  approvedCustomIndicators UserCustomIndicator[] @relation("ApprovedBy")
+  userMeasurements       UserMeasurement[]
+  verifiedMeasurements   UserMeasurement[]     @relation("VerifiedBy")
+  userReports            UserReport[]
+  conversations          Conversation[]
+  auditLogs              AuditLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  permissions Json     @default("[]") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  userOrganizations UserOrganization[]
+
+  @@map("roles")
+}
+
+model UserOrganization {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  roleId         String   @map("role_id") @db.Uuid
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  joinedAt       DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  // Relationships
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, organizationId])
+  @@map("user_organizations")
+}
+
+model UserCustomIndicator {
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  createdBy              String    @map("created_by") @db.Uuid
+  name                   String    @db.VarChar(500)
+  description            String?   @db.Text
+  calculationMethod      String?   @map("calculation_method") @db.Text
+  dataCollectionGuidance String?   @map("data_collection_guidance") @db.Text
+  frequency              String?   @db.VarChar(100)
+  approvalStatus         String    @default("draft") @map("approval_status") @db.VarChar(50)
+  approvedBy             String?   @map("approved_by") @db.Uuid
+  approvedAt             DateTime? @map("approved_at") @db.Timestamptz(6)
+  tags                   Json      @default("[]") @db.JsonB
+  isActive               Boolean   @default(true) @map("is_active")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator            User              @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  approver           User?             @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  userMeasurements   UserMeasurement[]
+
+  @@map("user_custom_indicators")
+}
+
+model UserMeasurement {
+  id                      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  indicatorId             String?   @map("indicator_id") @db.Uuid
+  customIndicatorId       String?   @map("custom_indicator_id") @db.Uuid
+  measurementPeriodStart  DateTime  @map("measurement_period_start") @db.Date
+  measurementPeriodEnd    DateTime  @map("measurement_period_end") @db.Date
+  value                   Decimal?  @db.Decimal(15, 4)
+  unit                    String?   @db.VarChar(100)
+  methodology             String?   @db.Text
+  dataQualityScore        Int?      @map("data_quality_score")
+  notes                   String?   @db.Text
+  attachments             Json      @default("[]") @db.JsonB
+  status                  String    @default("draft") @db.VarChar(50)
+  verifiedBy              String?   @map("verified_by") @db.Uuid
+  verifiedAt              DateTime? @map("verified_at") @db.Timestamptz(6)
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  indicator         IrisKeyIndicator?     @relation(fields: [indicatorId], references: [id])
+  customIndicator   UserCustomIndicator?  @relation(fields: [customIndicatorId], references: [id])
+  verifier          User?                 @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+
+  @@map("user_measurements")
+}
+
+model UserReport {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  createdBy   String    @map("created_by") @db.Uuid
+  title       String    @db.VarChar(500)
+  description String?   @db.Text
+  reportType  String    @map("report_type") @db.VarChar(100)
+  periodStart DateTime? @map("period_start") @db.Date
+  periodEnd   DateTime? @map("period_end") @db.Date
+  content     Json      @default("{}") @db.JsonB
+  templateId  String?   @map("template_id") @db.Uuid
+  status      String    @default("draft") @db.VarChar(50)
+  sharedWith  Json      @default("[]") @map("shared_with") @db.JsonB
+  exportFormats Json    @default("[]") @map("export_formats") @db.JsonB
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@map("user_reports")
+}
+
+// ============================================================================
+// CONVERSATION LAYER - LLM Interaction and Training
+// ============================================================================
+
+model Conversation {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
+  title                String?  @db.VarChar(500)
+  conversationType     String   @default("discovery") @map("conversation_type") @db.VarChar(100)
+  contextData          Json     @default("{}") @map("context_data") @db.JsonB
+  currentStep          String?  @map("current_step") @db.VarChar(100)
+  completionPercentage Int      @default(0) @map("completion_percentage")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  user                      User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages                  ConversationMessage[]
+  recommendations           ConversationRecommendation[]
+
+  @@map("conversations")
+}
+
+model ConversationMessage {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  messageType    String   @map("message_type") @db.VarChar(50)
+  content        String   @db.Text
+  metadata       Json     @default("{}") @db.JsonB
+  tokensUsed     Int?     @map("tokens_used")
+  processingTimeMs Int?   @map("processing_time_ms")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  conversation    Conversation                 @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  recommendations ConversationRecommendation[]
+
+  @@map("conversation_messages")
+}
+
+model ConversationRecommendation {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId      String   @map("conversation_id") @db.Uuid
+  messageId           String?  @map("message_id") @db.Uuid
+  recommendationType  String   @map("recommendation_type") @db.VarChar(100)
+  recommendedItemId   String?  @map("recommended_item_id") @db.Uuid
+  recommendedItemType String?  @map("recommended_item_type") @db.VarChar(100)
+  confidenceScore     Decimal? @map("confidence_score") @db.Decimal(5, 4)
+  reasoning           String?  @db.Text
+  userFeedback        String?  @map("user_feedback") @db.VarChar(50)
+  feedbackNotes       String?  @map("feedback_notes") @db.Text
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  conversation Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      ConversationMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("conversation_recommendations")
+}
+
+model QueryPattern {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  queryText             String   @map("query_text") @db.Text
+  queryVector           Json?    @map("query_vector") @db.JsonB
+  intentClassification  String?  @map("intent_classification") @db.VarChar(100)
+  entitiesExtracted     Json     @default("[]") @map("entities_extracted") @db.JsonB
+  successfulResultsCount Int     @default(0) @map("successful_results_count")
+  totalUsageCount       Int      @default(1) @map("total_usage_count")
+  avgUserSatisfaction   Decimal? @map("avg_user_satisfaction") @db.Decimal(3, 2)
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("query_patterns")
+}
+
+// ============================================================================
+// SYSTEM LAYER - Infrastructure and Monitoring
+// ============================================================================
+
+model AuditLog {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId         String?   @map("user_id") @db.Uuid
+  organizationId String?   @map("organization_id") @db.Uuid
+  action         String    @db.VarChar(255)
+  resourceType   String    @map("resource_type") @db.VarChar(100)
+  resourceId     String?   @map("resource_id") @db.Uuid
+  oldValues      Json?     @map("old_values") @db.JsonB
+  newValues      Json?     @map("new_values") @db.JsonB
+  ipAddress      String?   @map("ip_address") @db.Inet
+  userAgent      String?   @map("user_agent") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relationships
+  user         User?         @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model DataSyncStatus {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  syncType         String    @map("sync_type") @db.VarChar(100)
+  status           String    @db.VarChar(50)
+  recordsProcessed Int       @default(0) @map("records_processed")
+  recordsUpdated   Int       @default(0) @map("records_updated")
+  recordsCreated   Int       @default(0) @map("records_created")
+  errors           Json      @default("[]") @db.JsonB
+  startedAt        DateTime  @map("started_at") @db.Timestamptz(6)
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("data_sync_status")
+}
