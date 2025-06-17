@@ -18,6 +18,7 @@ import { pitfallDetectionRoutes } from './pitfallDetectionRoutes';
 import { decisionMappingRoutes } from './decisionMappingRoutes';
 import { foundationRoutes } from './foundationRoutes';
 import { adminAnalyticsRoutes } from './adminAnalyticsRoutes';
+import { realTimeWarningRoutes } from './realTimeWarningRoutes';
 
 const router = Router();
 
@@ -72,5 +73,8 @@ router.use('/foundation', foundationRoutes);
 
 // Admin analytics routes (behavior tracking and insights)
 router.use('/admin/analytics', adminAnalyticsRoutes);
+
+// Real-time warning routes (pitfall prevention during interactions)
+router.use('/warnings', realTimeWarningRoutes);
 
 export default router;
