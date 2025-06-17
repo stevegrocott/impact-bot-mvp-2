@@ -1,0 +1,99 @@
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  duration?: number;
+  createdAt: string;
+}
+
+interface UIState {
+  sidebarOpen: boolean;
+  chatPanelOpen: boolean;
+  theme: 'light' | 'dark';
+  notifications: Notification[];
+  loading: Record<string, boolean>;
+  modals: Record<string, boolean>;
+  activeModule: string;
+  breadcrumbs: Array<{ label: string; path: string }>;
+}
+
+const initialState: UIState = {
+  sidebarOpen: true,
+  chatPanelOpen: false,
+  theme: 'light',
+  notifications: [],
+  loading: {},
+  modals: {},
+  activeModule: 'dashboard',
+  breadcrumbs: [],
+};
+
+const uiSlice = createSlice({
+  name: 'ui',
+  initialState,
+  reducers: {
+    toggleSidebar: (state) => {
+      state.sidebarOpen = !state.sidebarOpen;
+    },
+    setSidebarOpen: (state, action: PayloadAction<boolean>) => {
+      state.sidebarOpen = action.payload;
+    },
+    toggleChatPanel: (state) => {
+      state.chatPanelOpen = !state.chatPanelOpen;
+    },
+    setChatPanelOpen: (state, action: PayloadAction<boolean>) => {
+      state.chatPanelOpen = action.payload;
+    },
+    setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
+      state.theme = action.payload;
+    },
+    addNotification: (state, action: PayloadAction<Omit<Notification, 'id' | 'createdAt'>>) => {
+      const notification: Notification = {
+        ...action.payload,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+      };
+      state.notifications.push(notification);
+    },
+    removeNotification: (state, action: PayloadAction<string>) => {
+      state.notifications = state.notifications.filter(n => n.id !== action.payload);
+    },
+    clearNotifications: (state) => {
+      state.notifications = [];
+    },
+    setLoading: (state, action: PayloadAction<{ key: string; loading: boolean }>) => {
+      const { key, loading } = action.payload;
+      state.loading[key] = loading;
+    },
+    setModal: (state, action: PayloadAction<{ modal: string; open: boolean }>) => {
+      const { modal, open } = action.payload;
+      state.modals[modal] = open;
+    },
+    setActiveModule: (state, action: PayloadAction<string>) => {
+      state.activeModule = action.payload;
+    },
+    setBreadcrumbs: (state, action: PayloadAction<Array<{ label: string; path: string }>>) => {
+      state.breadcrumbs = action.payload;
+    },
+  },
+});
+
+export const {
+  toggleSidebar,
+  setSidebarOpen,
+  toggleChatPanel,
+  setChatPanelOpen,
+  setTheme,
+  addNotification,
+  removeNotification,
+  clearNotifications,
+  setLoading,
+  setModal,
+  setActiveModule,
+  setBreadcrumbs,
+} = uiSlice.actions;
+
+export default uiSlice.reducer;
