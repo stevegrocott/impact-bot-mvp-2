@@ -117,9 +117,9 @@ class DecisionMappingService {
           conversationType: 'decision_mapping_guided',
           contextData: {
             theoryOfChange: theory,
-            existingDecisions: context?.existingDecisions || [],
+            existingDecisions: context?.existingDecisions ?? [],
             startedAt: new Date().toISOString()
-          },
+          } as any,
           currentStep: '1_strategic_decisions',
           completionPercentage: 0
         }
@@ -144,7 +144,7 @@ class DecisionMappingService {
             suggestedQuestions,
             decisionCategories,
             guidance: 'decision_mapping_introduction'
-          }
+          } as any
         }
       });
 
@@ -194,21 +194,21 @@ class DecisionMappingService {
           messageType: 'user',
           content: userResponse,
           metadata: {
-            step: conversation.currentStep,
+            step: conversation.currentStep ?? 'initial',
             timestamp: new Date().toISOString()
-          }
+          } as any
         }
       });
 
       // Process response to extract decision information
       const extractedDecisions = await this.extractDecisionsFromResponse(
         userResponse,
-        conversation.currentStep!,
+        conversation.currentStep ?? '1_strategic_decisions',
         conversation.contextData as any
       );
 
       // Determine next step in decision mapping
-      const nextStep = this.getNextDecisionMappingStep(conversation.currentStep!, extractedDecisions);
+      const nextStep = this.getNextDecisionMappingStep(conversation.currentStep ?? '1_strategic_decisions', extractedDecisions);
       const isComplete = nextStep === 'complete';
 
       let nextMessage: string;
@@ -236,7 +236,7 @@ class DecisionMappingService {
             ...(conversation.contextData as any),
             extractedDecisions,
             lastUpdated: new Date().toISOString()
-          }
+          } as any
         }
       });
 
@@ -251,7 +251,7 @@ class DecisionMappingService {
             isComplete,
             extractedDecisions: extractedDecisions.length,
             suggestions
-          }
+          } as any
         }
       });
 
@@ -350,11 +350,10 @@ class DecisionMappingService {
         data: {
           decisionQuestionId,
           changeType,
-          previousState,
-          newState,
+          previousState: previousState as any,
+          newState: newState as any,
           changeReason,
-          changedBy,
-          impact: this.assessChangeImpact(changeType, previousState, newState)
+          changedBy
         }
       });
 
@@ -371,11 +370,11 @@ class DecisionMappingService {
     const prompt = `
       Based on this theory of change, suggest key decisions that will need data:
 
-      Target Population: ${theory.targetPopulation}
-      Problem: ${theory.problemDefinition}
-      Activities: ${theory.activities?.join(', ')}
-      Short-term Outcomes: ${theory.shortTermOutcomes?.join(', ')}
-      Long-term Outcomes: ${theory.longTermOutcomes?.join(', ')}
+      Target Population: ${theory.targetPopulation ?? 'Not specified'}
+      Problem: ${theory.problemDefinition ?? 'Not specified'}
+      Activities: ${theory.activities?.join(', ') ?? 'None specified'}
+      Short-term Outcomes: ${theory.shortTermOutcomes?.join(', ') ?? 'None specified'}
+      Long-term Outcomes: ${theory.longTermOutcomes?.join(', ') ?? 'None specified'}
       
       Generate 5-8 specific decision questions that would require evidence. Focus on:
       1. Strategic decisions (program direction, scale, sustainability)
@@ -395,9 +394,9 @@ class DecisionMappingService {
   private identifyRelevantDecisionCategories(theory: any): string[] {
     const categories = [];
     
-    if (theory.activities?.length > 3) categories.push('Activity Optimization');
-    if (theory.shortTermOutcomes?.length > 2) categories.push('Outcome Achievement');
-    if (theory.impacts?.length > 0) categories.push('Impact Assessment');
+    if ((theory.activities?.length ?? 0) > 3) categories.push('Activity Optimization');
+    if ((theory.shortTermOutcomes?.length ?? 0) > 2) categories.push('Outcome Achievement');
+    if ((theory.impacts?.length ?? 0) > 0) categories.push('Impact Assessment');
     if (theory.targetPopulation?.includes('diverse') || theory.targetPopulation?.includes('multiple')) {
       categories.push('Targeting & Reach');
     }
@@ -464,8 +463,8 @@ Remember: If you can't clearly articulate what decision the data will inform, yo
     ];
     
     const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      return steps[currentIndex + 1];
+    if (currentIndex >= 0 && currentIndex < steps.length - 1) {
+      return steps[currentIndex + 1] ?? 'complete';
     }
     return 'complete';
   }
@@ -480,17 +479,17 @@ Remember: If you can't clearly articulate what decision the data will inform, yo
         const created = await prisma.decisionQuestion.create({
           data: {
             organizationId,
-            question: decision.question!,
-            decisionType: decision.decisionType || 'operational',
-            stakeholders: decision.stakeholders || [],
-            frequency: decision.frequency || 'quarterly',
-            urgency: decision.urgency || 'medium',
-            evidenceNeeds: decision.evidenceNeeds || [],
+            question: decision.question ?? 'Unknown decision',
+            decisionType: decision.decisionType ?? 'operational',
+            stakeholders: (decision.stakeholders ?? []) as any,
+            frequency: decision.frequency ?? 'quarterly',
+            urgency: decision.urgency ?? 'medium',
+            evidenceNeeds: (decision.evidenceNeeds ?? []) as any,
             currentDataSources: [],
             dataGaps: []
           }
         });
-        return created as DecisionQuestion;
+        return created as any;
       })
     );
 
@@ -522,7 +521,7 @@ Ready to start selecting indicators that directly inform these decisions!`;
   }
 
   private generateNextStepMessage(step: string, suggestions: string[]): string {
-    const messages = {
+    const messages: Record<string, string> = {
       '2_operational_decisions': "Great! Now let's think about **operational decisions** - day-to-day choices about implementation, resource allocation, and program delivery.",
       '3_evidence_requirements': "Perfect! Now let's get specific about **evidence requirements** - what type and quality of data do you need for each decision?",
       '4_data_gaps_assessment': "Excellent! Let's assess **current data gaps** - what evidence do you already have vs. what you need?",
@@ -546,7 +545,7 @@ Ready to start selecting indicators that directly inform these decisions!`;
   }
 
   private calculateDecisionMappingProgress(step: string): number {
-    const stepProgress = {
+    const stepProgress: Record<string, number> = {
       '1_strategic_decisions': 20,
       '2_operational_decisions': 40,
       '3_evidence_requirements': 60,

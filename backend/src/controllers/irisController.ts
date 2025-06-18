@@ -5,6 +5,7 @@
 
 import { Request, Response } from 'express';
 import { irisService } from '@/services/irisService';
+import { AppError } from '@/utils/errors';
 
 export class IrisController {
   
@@ -29,6 +30,9 @@ export class IrisController {
    */
   async getThemes(req: Request, res: Response): Promise<void> {
     const { categoryId } = req.params;
+    if (!categoryId) {
+      throw new AppError('Category ID is required', 400);
+    }
     const themes = await irisService.getThemesByCategory(categoryId);
     res.json(themes);
   }
@@ -55,19 +59,16 @@ export class IrisController {
       offset = 0
     } = req.query;
 
-    const filters = {
+    const page = Math.floor(parseInt(offset as string) / parseInt(limit as string)) + 1;
+
+    const indicators = await irisService.getKeyIndicators({
       category: category as string,
       theme: theme as string,
       goal: goal as string,
-      complexity: complexity as string,
-      search: search as string
-    };
-
-    const indicators = await irisService.getKeyIndicators(
-      filters,
-      parseInt(limit as string),
-      parseInt(offset as string)
-    );
+      complexityLevel: complexity as string,
+      page,
+      limit: parseInt(limit as string)
+    });
     
     res.json(indicators);
   }
@@ -77,6 +78,9 @@ export class IrisController {
    */
   async getIndicatorById(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
+    if (!id) {
+      throw new AppError('Indicator ID is required', 400);
+    }
     const indicator = await irisService.getIndicatorById(id);
     
     if (!indicator) {
@@ -100,7 +104,7 @@ export class IrisController {
 
     const results = await irisService.searchSimilarIndicators(
       query,
-      parseInt(limit as string)
+      { limit: parseInt(limit as string) }
     );
     
     res.json(results);
@@ -117,10 +121,7 @@ export class IrisController {
       return;
     }
 
-    const recommendations = await irisService.getContextualRecommendations(
-      context,
-      organizationId
-    );
+    const recommendations = await irisService.getContextualRecommendations(context);
     
     res.json(recommendations);
   }

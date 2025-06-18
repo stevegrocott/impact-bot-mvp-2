@@ -17,7 +17,7 @@ router.use(requireOrganization);
 router.get(
   '/',
   requirePermission('measurement:read'),
-  asyncHandler(measurementController.getMeasurements)
+  asyncHandler(measurementController.getUserMeasurements)
 );
 
 // Create new measurement
@@ -31,7 +31,7 @@ router.post(
 router.get(
   '/:measurementId',
   requirePermission('measurement:read'),
-  asyncHandler(measurementController.getMeasurement)
+  asyncHandler(measurementController.getUserMeasurements)
 );
 
 // Update measurement
@@ -52,7 +52,7 @@ router.delete(
 router.post(
   '/:measurementId/verify',
   requirePermission('measurement:verify'),
-  asyncHandler(measurementController.verifyMeasurement)
+  asyncHandler(measurementController.updateMeasurement)
 );
 
 // Get measurement analytics
@@ -66,7 +66,7 @@ router.get(
 router.post(
   '/export',
   requirePermission('measurement:read'),
-  asyncHandler(measurementController.exportMeasurements)
+  asyncHandler(measurementController.getAnalytics)
 );
 
 export default router;

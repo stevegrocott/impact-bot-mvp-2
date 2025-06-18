@@ -3,13 +3,15 @@
  * Comprehensive behavior analytics for learning and optimization
  */
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { AuthenticatedRequest } from '@/types';
 import { requireAuth } from '@/middleware/requireAuth';
 import { validateRequestBody } from '@/middleware/validateRequestBody';
 import { userBehaviorAnalyticsService } from '@/services/userBehaviorAnalyticsService';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
+import { ensureAuthenticated } from '@/utils/routeHelpers';
 
 const router = Router();
 
@@ -17,9 +19,12 @@ const router = Router();
 router.use(requireAuth);
 
 // Admin role check middleware
-router.use((req, res, next) => {
-  if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
-    throw new AppError('Admin access required', 403);
+router.use((req: Request, res: Response, next) => {
+  const user = ensureAuthenticated(req);
+  const userRole = user.currentOrganization?.role.name;
+  
+  if (userRole !== 'admin' && userRole !== 'super_admin') {
+    throw new AppError('Admin access required', 403, 'INSUFFICIENT_PERMISSIONS');
   }
   next();
 });
@@ -28,7 +33,8 @@ router.use((req, res, next) => {
  * GET /api/v1/admin/analytics/overview
  * Get high-level analytics overview
  */
-router.get('/overview', async (req, res, next) => {
+router.get('/overview', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { timeRange = 'month' } = req.query;
 
@@ -74,7 +80,8 @@ router.get('/overview', async (req, res, next) => {
  * GET /api/v1/admin/analytics/foundation-pathways
  * Detailed foundation pathway analytics
  */
-router.get('/foundation-pathways', async (req, res, next) => {
+router.get('/foundation-pathways', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { timeRange = 'month', organizationId } = req.query;
 
@@ -85,13 +92,10 @@ router.get('/foundation-pathways', async (req, res, next) => {
       by: ['eventData'],
       where: {
         eventType: 'foundation_pathway_selected',
-        organizationId: organizationId ? organizationId as string : undefined,
+        ...(organizationId && { organizationId: organizationId as string }),
         timestamp: getTimeFilter(timeRange as string)
       },
-      _count: true,
-      _avg: {
-        // Would need to add duration field for real implementation
-      }
+      _count: true
     });
 
     res.json({
@@ -112,7 +116,8 @@ router.get('/foundation-pathways', async (req, res, next) => {
  * GET /api/v1/admin/analytics/pitfall-effectiveness
  * Pitfall prevention effectiveness metrics
  */
-router.get('/pitfall-effectiveness', async (req, res, next) => {
+router.get('/pitfall-effectiveness', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { timeRange = 'month', warningType } = req.query;
 
@@ -122,8 +127,8 @@ router.get('/pitfall-effectiveness', async (req, res, next) => {
     const warningTrends = await prisma.pitfallWarningEvent.groupBy({
       by: ['warningType', 'userAction'],
       where: {
-        warningType: warningType ? warningType as string : undefined,
-        shownAt: getTimeFilter(timeRange as string)
+        ...(warningType && { warningType: warningType as string }),
+        triggeredAt: getTimeFilter(timeRange as string)
       },
       _count: true
     });
@@ -150,7 +155,8 @@ router.get('/pitfall-effectiveness', async (req, res, next) => {
  * GET /api/v1/admin/analytics/user-journey
  * User journey flow analysis
  */
-router.get('/user-journey', async (req, res, next) => {
+router.get('/user-journey', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { timeRange = 'month', organizationId } = req.query;
 
@@ -159,20 +165,15 @@ router.get('/user-journey', async (req, res, next) => {
       timeRange as any
     );
 
-    // Get session quality metrics
-    const sessionMetrics = await prisma.userSession.aggregate({
+    // Get session metrics from behavior events aggregated by sessionId
+    const sessionMetrics = await prisma.userBehaviorEvent.groupBy({
+      by: ['sessionId'],
       where: {
-        organizationId: organizationId ? organizationId as string : undefined,
-        startedAt: getTimeFilter(timeRange as string)
-      },
-      _avg: {
-        durationMinutes: true,
-        pagesVisited: true,
-        eventsCount: true,
-        indicatorsSelected: true
+        ...(organizationId && { organizationId: organizationId as string }),
+        timestamp: getTimeFilter(timeRange as string)
       },
       _count: {
-        foundationCompleted: true
+        id: true
       }
     });
 
@@ -194,7 +195,8 @@ router.get('/user-journey', async (req, res, next) => {
  * GET /api/v1/admin/analytics/behavior-insights
  * Generated behavior insights and recommendations
  */
-router.get('/behavior-insights', async (req, res, next) => {
+router.get('/behavior-insights', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { timeRange = 'month', organizationId, insightType } = req.query;
 
@@ -212,7 +214,7 @@ router.get('/behavior-insights', async (req, res, next) => {
     const implementationStatus = await prisma.behaviorInsight.groupBy({
       by: ['status'],
       where: {
-        organizationId: organizationId ? organizationId as string : undefined
+        ...(organizationId && { organizationId: organizationId as string })
       },
       _count: true
     });
@@ -249,7 +251,8 @@ router.post('/track-event',
     },
     required: ['organizationId', 'userId', 'sessionId', 'eventType']
   }),
-  async (req, res, next) => {
+  async (req: Request, res: Response, next: NextFunction) => {
+    const authReq = req as AuthenticatedRequest;
     try {
       const { organizationId, userId, sessionId, eventType, eventData = {}, contextData = {} } = req.body;
 
@@ -259,7 +262,7 @@ router.post('/track-event',
         sessionId,
         eventType,
         eventData,
-        { ...contextData, adminTracked: true, trackedBy: req.user?.userId }
+        { ...contextData, adminTracked: true, trackedBy: authReq.user.id }
       );
 
       res.json({
@@ -276,14 +279,15 @@ router.post('/track-event',
  * GET /api/v1/admin/analytics/organizations/:id
  * Organization-specific analytics deep dive
  */
-router.get('/organizations/:id', async (req, res, next) => {
+router.get('/organizations/:id', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const { id } = req.params;
     const { timeRange = 'month' } = req.query;
 
     // Verify organization exists
     const organization = await prisma.organization.findUnique({
-      where: { id },
+      where: { id: id! },
       include: {
         theoryOfChange: true,
         decisionQuestions: true
@@ -306,15 +310,15 @@ router.get('/organizations/:id', async (req, res, next) => {
       userBehaviorAnalyticsService.getUserJourneyFlow(id, timeRange as any),
       userBehaviorAnalyticsService.getPitfallPreventionEffectiveness(timeRange as any),
       userBehaviorAnalyticsService.generateBehaviorInsights(id, timeRange as any),
-      getEventSummary(id, timeRange as string)
+      getEventSummary(id!, timeRange as string)
     ]);
 
     const organizationAnalytics = {
       organization: {
         id: organization.id,
         name: organization.name,
-        hasTheoryOfChange: !!organization.theoryOfChange,
-        decisionCount: organization.decisionQuestions.length
+        hasTheoryOfChange: !!(organization as any).theoryOfChange,
+        decisionCount: (organization as any).decisionQuestions?.length || 0
       },
       foundationAnalytics,
       journeyAnalysis,
@@ -327,7 +331,7 @@ router.get('/organizations/:id', async (req, res, next) => {
     res.json({
       success: true,
       data: organizationAnalytics,
-      message: `Analytics for ${organization.name}`
+      message: `Analytics for ${organization?.name}`
     });
   } catch (error) {
     next(error);
@@ -338,7 +342,8 @@ router.get('/organizations/:id', async (req, res, next) => {
  * GET /api/v1/admin/analytics/realtime
  * Real-time analytics dashboard data
  */
-router.get('/realtime', async (req, res, next) => {
+router.get('/realtime', async (req: Request, res: Response, next: NextFunction) => {
+  const authReq = req as AuthenticatedRequest;
   try {
     const now = new Date();
     const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
@@ -350,17 +355,18 @@ router.get('/realtime', async (req, res, next) => {
       warningsShown,
       foundationStarts
     ] = await Promise.all([
-      prisma.userSession.count({
+      // Count active users in the last hour (unique session IDs)
+      prisma.userBehaviorEvent.groupBy({
+        by: ['sessionId'],
         where: {
-          startedAt: { gte: lastHour },
-          endedAt: null
+          timestamp: { gte: lastHour }
         }
-      }),
+      }).then(sessions => sessions.length),
       prisma.userBehaviorEvent.count({
         where: { timestamp: { gte: lastHour } }
       }),
       prisma.pitfallWarningEvent.count({
-        where: { shownAt: { gte: lastHour } }
+        where: { triggeredAt: { gte: lastHour } }
       }),
       prisma.userBehaviorEvent.count({
         where: {
@@ -411,7 +417,8 @@ function getTimeFilter(timeRange: string): any {
 
 function calculateOptimizationScore(analytics: any): number {
   const completionRate = analytics.completionRates.overall;
-  const balancedPathways = Math.min(...Object.values(analytics.pathwayDistribution)) > 0;
+  const pathwayValues = analytics.pathwayDistribution ? Object.values(analytics.pathwayDistribution).filter((v): v is number => typeof v === 'number') : [];
+  const balancedPathways = pathwayValues.length > 0 && Math.min(...pathwayValues) > 0;
   const lowAbandonment = analytics.abandonmentPoints.every((point: any) => point.abandonmentRate < 0.25);
   
   let score = completionRate;
@@ -444,12 +451,13 @@ function getPitfallBenchmarks(): any {
 }
 
 function calculateEngagementScore(sessionMetrics: any): number {
-  const avgDuration = sessionMetrics._avg.durationMinutes || 0;
-  const avgPages = sessionMetrics._avg.pagesVisited || 0;
-  const avgEvents = sessionMetrics._avg.eventsCount || 0;
+  // Since sessionMetrics is now grouped by sessionId, calculate based on session count and events
+  const uniqueSessions = sessionMetrics.length || 0;
+  const totalEvents = sessionMetrics.reduce((sum: number, session: any) => sum + (session._count?.id || 0), 0);
+  const avgEventsPerSession = uniqueSessions > 0 ? totalEvents / uniqueSessions : 0;
   
-  // Weighted engagement score
-  return Math.min(100, (avgDuration * 2) + (avgPages * 5) + (avgEvents * 1));
+  // Weighted engagement score based on session activity
+  return Math.min(100, (uniqueSessions * 5) + (avgEventsPerSession * 2));
 }
 
 async function getEventSummary(organizationId: string, timeRange: string): Promise<any> {

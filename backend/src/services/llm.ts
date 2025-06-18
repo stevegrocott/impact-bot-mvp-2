@@ -86,8 +86,8 @@ export class LLMService {
         max_tokens: options?.maxTokens || this.maxTokens,
         temperature: options?.temperature || this.temperature,
         messages: anthropicMessages,
-        system: systemPrompt,
-        stop_sequences: options?.stopSequences
+        ...(systemPrompt && { system: systemPrompt }),
+        ...(options?.stopSequences && { stop_sequences: options.stopSequences })
       };
 
       // Log request (without full content for privacy)
@@ -103,6 +103,12 @@ export class LLMService {
       const response = await this.client.messages.create(request);
 
       const processingTime = Date.now() - startTime;
+      
+      // Type guard to ensure we have a message response
+      if (!('content' in response) || !('usage' in response)) {
+        throw new Error('Unexpected response format from LLM');
+      }
+
       const content = response.content[0]?.type === 'text' ? response.content[0].text : '';
 
       // Prepare response
@@ -136,7 +142,6 @@ export class LLMService {
         logger.error('Anthropic API error', {
           status: error.status,
           message: error.message,
-          type: error.type,
           processingTime
         });
         

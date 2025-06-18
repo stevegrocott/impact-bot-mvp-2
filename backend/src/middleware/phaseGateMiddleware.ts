@@ -31,7 +31,7 @@ export interface FoundationStatus {
  * Create phase gate middleware with specific requirements
  */
 export function createPhaseGate(config: PhaseGateConfig) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
         throw new AppError('Authentication required', 401);
@@ -60,7 +60,7 @@ export function createPhaseGate(config: PhaseGateConfig) {
           foundationStatus
         );
 
-        return res.status(403).json({
+        res.status(403).json({
           success: false,
           error: 'Foundation requirements not met',
           message: blockMessage,
@@ -68,6 +68,7 @@ export function createPhaseGate(config: PhaseGateConfig) {
           nextSteps: generateNextSteps(foundationStatus),
           requiredLevel: config.requiredFoundationLevel
         });
+        return;
       }
 
       // Access granted - attach foundation status to request for use in handlers
@@ -160,8 +161,8 @@ async function checkFoundationStatus(organizationId: string): Promise<Foundation
 
     // Determine access levels
     const allowsBasicAccess = foundationReadiness?.allowsBasicAccess || false;
-    const allowsIntermediateAccess = foundationReadiness?.allowsIntermediateAccess && hasDecisionMapping;
-    const allowsAdvancedAccess = foundationReadiness?.allowsAdvancedAccess && decisionCount >= 3;
+    const allowsIntermediateAccess = (foundationReadiness?.allowsIntermediateAccess || false) && hasDecisionMapping;
+    const allowsAdvancedAccess = (foundationReadiness?.allowsAdvancedAccess || false) && decisionCount >= 3;
 
     // Generate blocking reasons
     const blockingReasons = [];
@@ -239,7 +240,7 @@ function generateBlockMessage(
     advanced: "🎯 **Comprehensive Foundation Required**\n\nAdvanced features require both complete theory of change and comprehensive decision mapping to prevent measurement pitfalls."
   };
 
-  let baseMessage = messages[requiredLevel] || messages.basic;
+  let baseMessage = messages[requiredLevel as keyof typeof messages] || messages.basic;
   
   if (status.blockingReasons.length > 0) {
     baseMessage += `\n\n**Missing Requirements:**\n${status.blockingReasons.map(r => `• ${r}`).join('\n')}`;

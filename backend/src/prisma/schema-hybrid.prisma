@@ -108,6 +108,7 @@ model IrisKeyIndicator {
   coreMetricSetIndicators     IrisCoreMetricSetIndicator[]
   indicatorDataRequirements   IrisIndicatorDataRequirement[]
   userMeasurements            UserMeasurement[]
+  indicatorUtilities          IndicatorUtility[]
 
   @@map("iris_key_indicators")
 }
@@ -223,6 +224,7 @@ model ConversationMessage {
   id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   conversationId   String   @map("conversation_id") @db.Uuid
   messageType      String   @map("message_type") @db.VarChar(50)
+  role             String   @default("assistant") @db.VarChar(20) // user, assistant, system
   content          String   @db.Text
   contentEmbedding Unsupported("vector(1536)")? @map("content_embedding")
   metadata         Json     @default("{}") @db.JsonB
@@ -340,6 +342,13 @@ model Organization {
   userReports         UserReport[]
   conversations       Conversation[]
   auditLogs           AuditLog[]
+  theoryOfChange      OrganizationTheoryOfChange?
+  decisionQuestions   DecisionQuestion[]
+  userBehaviorEvents  UserBehaviorEvent[]
+  behaviorInsights    BehaviorInsight[]
+  analyticsMetrics    AnalyticsMetric[]
+  pitfallWarningEvents PitfallWarningEvent[]
+  minimumViableMeasurements MinimumViableMeasurement[]
 
   @@map("organizations")
 }
@@ -352,6 +361,18 @@ model User {
   lastName     String?   @map("last_name") @db.VarChar(100)
   jobTitle     String?   @map("job_title") @db.VarChar(255)
   phone        String?   @db.VarChar(50)
+  
+  // Email verification fields (align with code expectations)
+  isEmailVerified           Boolean   @default(false) @map("is_email_verified")
+  emailVerifiedAt           DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  emailVerificationToken    String?   @map("email_verification_token") @db.VarChar(255)
+  emailVerificationExpires  DateTime? @map("email_verification_expires") @db.Timestamptz(6)
+  
+  // Password reset fields (align with code expectations)
+  passwordResetToken        String?   @map("password_reset_token") @db.VarChar(255)
+  passwordResetExpires      DateTime? @map("password_reset_expires") @db.Timestamptz(6)
+  passwordChangedAt         DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  
   preferences  Json      @default("{}") @db.JsonB
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
   isActive     Boolean   @default(true) @map("is_active")
@@ -367,6 +388,11 @@ model User {
   userReports            UserReport[]
   conversations          Conversation[]
   auditLogs              AuditLog[]
+  createdTheoriesOfChange OrganizationTheoryOfChange[]
+  decisionEvolutions     DecisionEvolution[]
+  userBehaviorEvents     UserBehaviorEvent[]
+  pitfallWarningEvents   PitfallWarningEvent[]
+  approvedMeasurements   MinimumViableMeasurement[]
 
   @@map("users")
 }
@@ -720,4 +746,247 @@ model SdgIndicator {
   target SdgTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
 
   @@map("sdg_indicators")
+}
+
+// ============================================================================
+// MISSING MODELS - Added to fix TypeScript compilation errors
+// ============================================================================
+
+model OrganizationTheoryOfChange {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId      String    @unique @map("organization_id") @db.Uuid
+  targetPopulation    String?   @map("target_population") @db.Text
+  problemDefinition   String?   @map("problem_definition") @db.Text
+  activities          Json      @default("[]") @db.JsonB
+  outputs             Json      @default("[]") @db.JsonB
+  shortTermOutcomes   Json      @default("[]") @map("short_term_outcomes") @db.JsonB
+  longTermOutcomes    Json      @default("[]") @map("long_term_outcomes") @db.JsonB
+  impacts             Json      @default("[]") @db.JsonB
+  assumptions         Json      @default("[]") @db.JsonB
+  externalFactors     Json      @default("[]") @map("external_factors") @db.JsonB
+  interventionType    String?   @map("intervention_type") @db.VarChar(100)
+  sector              String?   @db.VarChar(100)
+  geographicScope     String?   @map("geographic_scope") @db.VarChar(200)
+  status              String    @default("draft") @db.VarChar(50) // draft, complete, archived
+  version             Int       @default(1)
+  createdBy           String    @map("created_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator             User                       @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  foundationReadiness FoundationReadiness?
+  decisionMappings    DecisionMapping[]
+
+  @@map("organization_theory_of_change")
+}
+
+model FoundationReadiness {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  theoryOfChangeId      String    @unique @map("theory_of_change_id") @db.Uuid
+  overallScore          Decimal   @default(0) @map("overall_score") @db.Decimal(5, 2) // 0-100 score
+  stepScores            Json      @default("{}") @map("step_scores") @db.JsonB // Individual step completion scores
+  completionStatus      String    @default("in_progress") @map("completion_status") @db.VarChar(20) // not_started, in_progress, completed
+  blockers              Json      @default("[]") @db.JsonB // Array of blocking issues
+  recommendations       Json      @default("[]") @db.JsonB // Array of improvement recommendations
+  lastAssessedAt        DateTime? @map("last_assessed_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  theoryOfChange  OrganizationTheoryOfChange @relation(fields: [theoryOfChangeId], references: [id], onDelete: Cascade)
+
+  @@map("foundation_readiness")
+}
+
+model DecisionMapping {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  theoryOfChangeId  String   @map("theory_of_change_id") @db.Uuid
+  decisionType      String   @map("decision_type") @db.VarChar(50) // strategic, operational, tactical
+  description       String   @db.Text
+  stakeholders      Json     @default("[]") @db.JsonB
+  informationNeeds  Json     @default("[]") @map("information_needs") @db.JsonB
+  currentGaps       Json     @default("[]") @map("current_gaps") @db.JsonB
+  priority          String   @default("medium") @db.VarChar(20) // low, medium, high, critical
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  theoryOfChange        OrganizationTheoryOfChange @relation(fields: [theoryOfChangeId], references: [id], onDelete: Cascade)
+
+  @@map("decision_mappings")
+}
+
+model DecisionQuestion {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  question            String    @db.Text
+  decisionType        String    @map("decision_type") @db.VarChar(50) // strategic, operational, tactical, adaptive
+  stakeholders        Json      @default("[]") @db.JsonB
+  frequency           String    @default("quarterly") @db.VarChar(50) // ongoing, quarterly, annually, one-time
+  urgency             String    @default("medium") @db.VarChar(20) // low, medium, high, critical
+  evidenceNeeds       Json      @default("[]") @map("evidence_needs") @db.JsonB
+  currentDataSources  Json      @default("[]") @map("current_data_sources") @db.JsonB
+  dataGaps            Json      @default("[]") @map("data_gaps") @db.JsonB
+  status              String    @default("active") @db.VarChar(20) // active, resolved, archived
+  resolvedAt          DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolutionReason    String?   @map("resolution_reason") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  evolution          DecisionEvolution[]
+  indicatorUtilities IndicatorUtility[]
+
+  @@map("decision_questions")
+}
+
+model DecisionEvolution {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  decisionQuestionId String   @map("decision_question_id") @db.Uuid
+  changeType         String   @map("change_type") @db.VarChar(50) // question_refined, evidence_added, data_source_changed, decision_resolved
+  previousState      Json     @map("previous_state") @db.JsonB
+  newState           Json     @map("new_state") @db.JsonB
+  changeReason       String?  @map("change_reason") @db.Text
+  changedBy          String   @map("changed_by") @db.Uuid
+  changedAt          DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+
+  // Relationships
+  decisionQuestion DecisionQuestion @relation(fields: [decisionQuestionId], references: [id], onDelete: Cascade)
+  user             User             @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@map("decision_evolution")
+}
+
+model IndicatorUtility {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  decisionQuestionId String   @map("decision_question_id") @db.Uuid
+  indicatorId        String   @map("indicator_id") @db.Uuid
+  utilityScore       Decimal  @map("utility_score") @db.Decimal(3, 2) // 0.00-1.00
+  relevanceScore     Decimal  @map("relevance_score") @db.Decimal(3, 2) // 0.00-1.00
+  feasibilityScore   Decimal  @map("feasibility_score") @db.Decimal(3, 2) // 0.00-1.00
+  reasoning          String?  @db.Text
+  assessedAt         DateTime @default(now()) @map("assessed_at") @db.Timestamptz(6)
+
+  // Relationships
+  decisionQuestion DecisionQuestion @relation(fields: [decisionQuestionId], references: [id], onDelete: Cascade)
+  indicator        IrisKeyIndicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionQuestionId, indicatorId])
+  @@map("indicator_utilities")
+}
+
+model MinimumViableMeasurement {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  decisionQuestions  Json     @map("decision_questions") @db.JsonB // Array of decision question IDs
+  requiredIndicators Json     @map("required_indicators") @db.JsonB // Core indicators needed
+  optionalIndicators Json     @map("optional_indicators") @db.JsonB // Nice-to-have indicators
+  dataCollectionPlan Json     @map("data_collection_plan") @db.JsonB // How and when to collect
+  resourceRequirements Json   @map("resource_requirements") @db.JsonB // People, tools, budget needed
+  timeline           Json     @default("{}") @db.JsonB // Implementation timeline
+  status             String   @default("draft") @db.VarChar(20) // draft, approved, in_progress, completed
+  approvedBy         String?  @map("approved_by") @db.Uuid
+  approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approver     User?        @relation(fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@map("minimum_viable_measurements")
+}
+
+model UserBehaviorEvent {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  sessionId        String   @map("session_id") @db.VarChar(255)
+  eventType        String   @map("event_type") @db.VarChar(100)
+  eventData        Json     @default("{}") @map("event_data") @db.JsonB
+  contextData      Json     @default("{}") @map("context_data") @db.JsonB
+  processingStatus String   @default("pending") @map("processing_status") @db.VarChar(20) // pending, processed, failed
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz(6)
+  timestamp        DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, eventType])
+  @@index([userId, sessionId])
+  @@index([timestamp])
+  @@index([eventType, timestamp])
+  @@map("user_behavior_events")
+}
+
+model BehaviorInsight {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId   String?  @map("organization_id") @db.Uuid // null for cross-org insights
+  insightType      String   @map("insight_type") @db.VarChar(50) // pathway_optimization, friction_point, success_pattern, pitfall_effectiveness
+  title            String   @db.VarChar(255)
+  description      String   @db.Text
+  metrics          Json     @default("{}") @db.JsonB
+  recommendations  Json     @default("[]") @db.JsonB
+  impact           String   @db.VarChar(20) // low, medium, high
+  confidence       Decimal  @db.Decimal(3, 2) // 0.00-1.00
+  affectedUsers    Int      @default(0) @map("affected_users")
+  status           String   @default("active") @db.VarChar(20) // active, archived, implemented
+  implementedAt    DateTime? @map("implemented_at") @db.Timestamptz(6)
+  generatedAt      DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  validUntil       DateTime? @map("valid_until") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, insightType])
+  @@index([generatedAt])
+  @@index([impact, confidence])
+  @@map("behavior_insights")
+}
+
+model AnalyticsMetric {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid // null for global metrics
+  metricType     String   @map("metric_type") @db.VarChar(50) // completion_rate, time_to_value, user_satisfaction, etc.
+  metricName     String   @map("metric_name") @db.VarChar(100)
+  value          Decimal  @db.Decimal(10, 4)
+  unit           String?  @db.VarChar(20) // percentage, minutes, count, etc.
+  context        Json     @default("{}") @db.JsonB // Additional context about the metric
+  measurementPeriod String @map("measurement_period") @db.VarChar(50) // daily, weekly, monthly, etc.
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, metricType])
+  @@index([recordedAt])
+  @@index([metricType, measurementPeriod])
+  @@map("analytics_metrics")
+}
+
+model PitfallWarningEvent {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  warningType       String   @map("warning_type") @db.VarChar(50) // activity_vs_impact, proxy_metric, over_engineering, etc.
+  warningMessage    String   @map("warning_message") @db.Text
+  context           Json     @default("{}") @db.JsonB // Context that triggered the warning
+  userAction        String?  @map("user_action") @db.VarChar(50) // dismissed, acted_upon, ignored
+  actionTaken       String?  @map("action_taken") @db.Text // Details of what the user did
+  effectiveness     Decimal? @db.Decimal(3, 2) // 0.00-1.00, measured later based on behavior change
+  triggeredAt       DateTime @default(now()) @map("triggered_at") @db.Timestamptz(6)
+  respondedAt       DateTime? @map("responded_at") @db.Timestamptz(6)
+
+  // Relationships
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, warningType])
+  @@index([userId, triggeredAt])
+  @@index([warningType, userAction])
+  @@map("pitfall_warning_events")
 }

@@ -133,7 +133,7 @@ router.post('/guided-conversation/start',
   }),
   async (req, res, next) => {
     try {
-      const { organizationId, userId } = req.user!;
+      const { organizationId, id: userId } = req.user!;
       const { partialTheory } = req.body;
 
       const conversationState = await theoryOfChangeService.startGuidedConversation(
@@ -232,7 +232,7 @@ router.put('/update',
   }),
   async (req, res, next) => {
     try {
-      const { organizationId, userId } = req.user!;
+      const { organizationId, id: userId } = req.user!;
       const theoryUpdate = req.body;
 
       // Store updated theory

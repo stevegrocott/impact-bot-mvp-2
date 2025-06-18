@@ -23,7 +23,7 @@ function getSessionId(req: Request): string {
   // Try to get session ID from various sources
   let sessionId = req.headers['x-session-id'] as string ||
                  req.cookies?.sessionId ||
-                 req.session?.id;
+                 (req as any).session?.id;
 
   if (!sessionId) {
     // Generate new session ID
@@ -51,7 +51,7 @@ function extractContextData(req: Request, res?: Response): Record<string, any> {
        req.foundationStatus.allowsIntermediateAccess ? 'intermediate' :
        req.foundationStatus.allowsBasicAccess ? 'basic' : 'insufficient') : undefined,
     timestamp: new Date().toISOString(),
-    responseTime: res ? Date.now() - req.startTime : undefined
+    responseTime: res && req.startTime ? Date.now() - req.startTime : undefined
   };
 }
 
@@ -70,7 +70,7 @@ export function trackBehavior(config: TrackingConfig = {}) {
       req.startTime = startTime;
 
       const sessionId = getSessionId(req);
-      const { organizationId, userId } = req.user;
+      const { organizationId, id: userId } = req.user;
 
       // Track request if configured
       if (config.trackRequest && config.eventType) {
@@ -219,7 +219,7 @@ export const behaviorTrackers = {
     if (!req.user) return;
 
     const sessionId = getSessionId(req);
-    const { organizationId, userId } = req.user;
+    const { organizationId, id: userId } = req.user;
 
     userBehaviorAnalyticsService.trackEvent(
       organizationId,
@@ -248,7 +248,7 @@ export function trackSession(req: Request, res: Response, next: NextFunction) {
   }
 
   const sessionId = getSessionId(req);
-  const { organizationId, userId } = req.user;
+  const { organizationId, id: userId } = req.user;
 
   // Track session start (debounced to avoid spam)
   const sessionKey = `session_${sessionId}`;
@@ -314,10 +314,10 @@ function determineResponseEventType(req: Request, res: Response, baseEventType?:
   );
 
   if (routePattern && res.statusCode < 300) {
-    return routeEventMap[routePattern];
+    return routeEventMap[routePattern] ?? null;
   }
 
-  return baseEventType || null;
+  return baseEventType ?? null;
 }
 
 // Extend Express Request interface

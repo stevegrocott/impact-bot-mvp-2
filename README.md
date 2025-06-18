@@ -119,83 +119,80 @@ Impact Bot v2 is a conversational AI platform that guides organizations through 
 
 ## 🎯 Implementation Roadmap
 
-### **Phase 1 (Weeks 1-4): Foundation-First + Core Pitfall Prevention**
-**Priority: HIGH - Must have for Release 1**
+**📋 For detailed task tracking and progress updates, see:**
+- **[PROJECT-ROADMAP.md](docs/planning/PROJECT-ROADMAP.md)** - Epic-based development plan with task assignments
+- **[TASK-TRACKER.md](docs/planning/TASK-TRACKER.md)** - Daily progress log and sprint tracking
 
-1. **Flexible Theory of Change Capture**
-   - Upload existing documents OR guided creation OR hybrid
-   - 15-20 minute guided conversation for organizations without ToC
-   - Theory validation and gap identification
-   - Updateable and versioned over time
+### **🏗️ Epic 1: Foundation Infrastructure (Weeks 1-3)**
+**Priority: CRITICAL PATH - Nothing else works without this**
 
-2. **Phase-Gated Workflow**
-   - Block indicator access until foundation complete
-   - Progressive complexity revelation based on readiness
-   - Foundation completeness scoring
+Set up core user/organization authentication system with JWT, roles, and permissions to enable multi-tenant impact measurement platform.
 
-3. **Activity vs Impact Intelligence**
-   - AI flags output-heavy indicator selections
-   - "This measures what you do, not what changes" warnings
-   - Automatic outcome alternative suggestions
+- User registration with organization creation
+- Multi-organization login support  
+- Organization CRUD operations
+- User-organization relationship management
+- Comprehensive authentication tests
 
-4. **Decision Mapping Foundation**
-   - "What decisions will this data inform?" guided process
-   - Minimum viable measurement recommendations
-   - Decision evolution tracking
+### **🏢 Epic 2: Multi-Tenant Platform Core (Weeks 2-4)**  
+**Priority: HIGH - Core product feature**
 
-### **Phase 2 (Weeks 5-8): AI-Powered Quality Assurance**
-**Priority: HIGH - Core value proposition**
+Enable organization management and team collaboration for multi-stakeholder impact measurement.
 
-1. **Proxy Detection System**
-   - Identify proxy metrics with explanations
-   - Suggest direct measurement alternatives
-   - Triangulation recommendations when proxies necessary
+- Member invitation system
+- Role-based permissions and member management
+- Organization settings management
+- User preferences system
 
-2. **Over-Engineering Prevention**
-   - Measurement burden scoring and warnings
-   - "Less is more" recommendations
-   - Indicator consolidation suggestions
+### **📊 Epic 3: Impact Measurement Core (Weeks 4-8)**
+**Priority: HIGH - Primary value proposition**
 
-3. **Three-Lens Validation**
-   - Quantitative + qualitative + expert opinion balance
-   - Portfolio analysis and gap identification
-   - Method suggestion for comprehensive measurement
+Implement IRIS+ indicator selection and custom indicator creation with theory of change alignment.
 
-4. **Contextual IRIS+ Discovery**
-   - Surface relevant indicators at decision points
-   - "Organizations like yours typically measure..." insights
-   - Sector-specific guidance and complexity acknowledgment
+- Conversation-driven indicator discovery
+- Theory of change integration (upload/guided/hybrid)
+- Custom indicator creation workflow  
+- IRIS+ gap analysis and alignment tools
 
-### **Phase 3 (Weeks 9-12): Learning-Driven Analytics**
-**Priority: MEDIUM - Product optimization**
+### **📈 Epic 4: Data Collection & Reporting (Weeks 6-10)**
+**Priority: MEDIUM - Value realization**
 
-1. **Contribution vs Attribution Honesty**
-   - Evidence strength assessment
-   - Honest impact claim language suggestions
-   - Confounding factor identification
+Enable comprehensive data collection and report generation for stakeholder communication.
 
-2. **Learning Question Generation**
-   - Generate improvement questions from data patterns
-   - Focus on program refinement over reporting
-   - Learning review template creation
+- Report generation system
+- Data collection planning for custom indicators
+- Stakeholder-specific reporting
+- External evaluator and funder access
 
-3. **Admin Analytics Implementation**
-   - Foundation pathway optimization tracking
-   - Pitfall prevention effectiveness measurement
-   - Cross-organizational pattern recognition
+### **🤖 Epic 5: AI & Analytics Platform (Weeks 8-12)**
+**Priority: MEDIUM - Scale & intelligence**
 
-### **Phase 4 (Weeks 13-16): Custom Indicators + Advanced Features**
-**Priority: LOW - Enhancement for mature users**
+Implement pitfall prevention and cross-organizational learning through AI analytics.
 
-1. **IRIS+ Gap Identification**
-   - Theory of change analysis for coverage gaps
-   - Custom indicator development workflow
-   - SMART criteria validation for custom measures
+- Admin analytics dashboard
+- Pitfall prevention system
+- Cross-organization pattern analysis
+- Knowledge sharing platform
 
-2. **Advanced Analytics**
-   - Natural language analysis for methodology adoption
-   - Predictive user success modeling
-   - A/B testing framework for optimization
+### **⚙️ Epic 6: System Administration (Weeks 10-14)**
+**Priority: MEDIUM - Operational excellence**
+
+Complete admin tools and system monitoring for sustainable platform operations.
+
+- System health monitoring
+- User and organization admin management
+- Cache management system
+- External system integrations
+
+### **🚀 Epic 7: Quality & Production Readiness (Weeks 12-16)**
+**Priority: LOW - Scale preparation**
+
+Ensure system reliability and performance for production deployment.
+
+- Database audit logging
+- Account deactivation workflows
+- Comprehensive testing suite
+- Production deployment infrastructure
 
 ## 🛠️ Quick Start for Developers
 

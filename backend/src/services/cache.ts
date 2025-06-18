@@ -23,8 +23,6 @@ class CacheService {
       url: config.REDIS_URL,
       socket: {
         connectTimeout: 5000,
-        lazyConnect: true,
-        reconnectDelay: 1000,
       },
     });
 
@@ -349,7 +347,7 @@ export class IrisCacheService {
     const data = await fetchFunction();
     
     // Cache the result
-    await cacheService.set(key, data, ttl, { tags });
+    await cacheService.set(key, data, ttl, { tags: tags || [] });
     
     return data;
   }

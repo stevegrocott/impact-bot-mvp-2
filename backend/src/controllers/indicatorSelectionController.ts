@@ -8,15 +8,9 @@ import { prisma } from '@/config/database';
 import { cacheService } from '@/services/cache';
 import { logger } from '@/utils/logger';
 import { AppError, ValidationError, Assert, asyncHandler } from '@/utils/errors';
+import { getUserContext } from '@/utils/routeHelpers';
 import { v4 as uuidv4 } from 'uuid';
-
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    email: string;
-    organizationId: string;
-  };
-}
+import { AuthenticatedRequest, isAuthenticatedRequest } from '@/types';
 
 interface IndicatorSelection {
   indicatorId: string;
@@ -42,7 +36,10 @@ export class IndicatorSelectionController {
    * Save selected indicators from bot recommendations
    */
   async saveSelectedIndicators(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
+    
     const { selections, conversationId }: { 
       selections: IndicatorSelection[], 
       conversationId?: string 
@@ -76,10 +73,11 @@ export class IndicatorSelectionController {
           const indicator = existingIndicators.find(i => i.id === selection.indicatorId)!;
           
           // Check if already selected by user
+          const { userId, organizationId } = getUserContext(req);
           const existing = await prisma.userMeasurement.findFirst({
             where: {
-              userId: authReq.user.id,
-              organizationId: authReq.user.organizationId,
+              userId,
+              organizationId,
               indicatorId: selection.indicatorId,
               status: 'selected' // Not yet set up for data collection
             }
@@ -93,19 +91,23 @@ export class IndicatorSelectionController {
           return await prisma.userMeasurement.create({
             data: {
               id: uuidv4(),
-              userId: authReq.user.id,
-              organizationId: authReq.user.organizationId,
+              userId,
+              organizationId,
               indicatorId: selection.indicatorId,
-              indicatorName: selection.indicatorName || indicator.name,
               status: 'selected',
-              complexity: selection.complexity || indicator.complexityLevel,
-              targetValue: selection.targetValue,
-              notes: selection.notes,
-              metadata: {
-                selectedAt: new Date().toISOString(),
-                selectedFromConversation: conversationId,
-                originalRecommendation: true,
-                dataCollectionFrequency: selection.dataCollectionFrequency || indicator.dataCollectionFrequency
+              ...(selection.notes && { notes: selection.notes }),
+              measurementPeriodStart: new Date(),
+              measurementPeriodEnd: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+              attachments: {
+                indicatorName: selection.indicatorName || indicator.name,
+                complexity: selection.complexity || indicator.complexityLevel,
+                targetValue: selection.targetValue,
+                metadata: {
+                  selectedAt: new Date().toISOString(),
+                  selectedFromConversation: conversationId,
+                  originalRecommendation: true,
+                  dataCollectionFrequency: selection.dataCollectionFrequency || indicator.dataCollectionFrequency
+                }
               }
             }
           });
@@ -118,12 +120,14 @@ export class IndicatorSelectionController {
       }
 
       // Invalidate user cache
-      await cacheService.invalidateByTags([`user:${authReq.user.id}`, 'indicators']);
+      const { userId: logUserId } = getUserContext(req);
+      await cacheService.invalidateByTags([`user:${logUserId}`, 'indicators']);
 
       // Log selection activity
+      const { organizationId: logOrgId } = getUserContext(req);
       logger.info('User selected indicators', {
-        userId: authReq.user.id,
-        organizationId: authReq.user.organizationId,
+        userId: logUserId,
+        organizationId: logOrgId,
         indicatorCount: selections.length,
         conversationId,
         indicatorIds: indicatorIds
@@ -131,24 +135,28 @@ export class IndicatorSelectionController {
 
       res.status(201).json({
         message: 'Indicators selected successfully',
-        selections: savedSelections.map(s => ({
-          id: s.id,
-          indicatorId: s.indicatorId,
-          indicatorName: s.indicatorName,
-          status: s.status,
-          complexity: s.complexity,
-          targetValue: s.targetValue,
-          selectedAt: s.createdAt
-        })),
+        selections: savedSelections.map(s => {
+          const attachments = s.attachments as any;
+          return {
+            id: s.id,
+            indicatorId: s.indicatorId,
+            indicatorName: attachments?.indicatorName || 'Unknown',
+            status: s.status,
+            complexity: attachments?.complexity || 'intermediate',
+            targetValue: attachments?.targetValue || null,
+            selectedAt: s.createdAt
+          };
+        }),
         nextSteps: {
-          setupDataCollection: `/api/indicators/selected/${savedSelections[0].id}/setup-data-collection`,
+          setupDataCollection: `/api/indicators/selected/${savedSelections[0]?.id}/setup-data-collection`,
           viewSelected: '/api/indicators/selected'
         }
       });
 
     } catch (error) {
+      const { userId: logUserId } = getUserContext(req);
       logger.error('Failed to save selected indicators', {
-        userId: authReq.user.id,
+        userId: logUserId,
         selections: selections.map(s => s.indicatorId),
         error
       });
@@ -160,13 +168,16 @@ export class IndicatorSelectionController {
    * Get user's selected indicators
    */
   async getSelectedIndicators(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
     const { status, includeSetup = false } = req.query;
 
     try {
+      const { userId, organizationId } = getUserContext(req);
       const whereClause = {
-        userId: authReq.user.id,
-        organizationId: authReq.user.organizationId,
+        userId,
+        organizationId,
         ...(status && { status: status as string })
       };
 
@@ -207,10 +218,10 @@ export class IndicatorSelectionController {
         groups[status].push({
           id: selection.id,
           indicatorId: selection.indicatorId,
-          indicatorName: selection.indicatorName,
+          indicatorName: selection.indicator?.name || 'Unknown',
           status: selection.status,
-          complexity: selection.complexity,
-          targetValue: selection.targetValue,
+          complexity: selection.indicator?.complexityLevel || 'unknown',
+          targetValue: selection.value,
           notes: selection.notes,
           selectedAt: selection.createdAt,
           lastUpdated: selection.updatedAt,
@@ -227,15 +238,16 @@ export class IndicatorSelectionController {
         summary: {
           total: selectedIndicators.length,
           byStatus: Object.keys(groupedSelections).reduce((summary, status) => {
-            summary[status] = groupedSelections[status].length;
+            summary[status] = groupedSelections[status]?.length || 0;
             return summary;
           }, {} as Record<string, number>)
         }
       });
 
     } catch (error) {
+      const { userId: logUserId } = getUserContext(req);
       logger.error('Failed to get selected indicators', {
-        userId: authReq.user.id,
+        userId: logUserId,
         error
       });
       throw error;
@@ -246,7 +258,9 @@ export class IndicatorSelectionController {
    * Setup data collection for selected indicator
    */
   async setupDataCollection(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
     const { selectionId } = req.params;
     const setupData: DataCollectionSetup = req.body;
 
@@ -256,11 +270,12 @@ export class IndicatorSelectionController {
 
     try {
       // Verify selection ownership and get details
+      const { userId, organizationId } = getUserContext(req);
       const selection = await prisma.userMeasurement.findFirst({
         where: {
-          id: selectionId,
-          userId: authReq.user.id,
-          organizationId: authReq.user.organizationId
+          ...(selectionId && { id: selectionId }),
+          userId,
+          organizationId
         },
         include: {
           indicator: {
@@ -278,15 +293,13 @@ export class IndicatorSelectionController {
 
       // Update selection with data collection setup
       const updatedSelection = await prisma.userMeasurement.update({
-        where: { id: selectionId },
+        where: { id: selectionId! },
         data: {
           status: 'active', // Now actively collecting data
-          dataCollectionFrequency: setupData.frequency,
-          targetValue: setupData.targetValue || selection.targetValue,
-          responsibleTeam: setupData.responsibleTeam,
+          ...(setupData.targetValue && { value: setupData.targetValue }),
           notes: setupData.notes ? `${selection.notes || ''}\n\nData Collection Setup:\n${setupData.notes}` : selection.notes,
-          metadata: {
-            ...selection.metadata as any,
+          attachments: {
+            ...selection.attachments as any,
             dataCollectionSetup: {
               setupAt: new Date().toISOString(),
               frequency: setupData.frequency,
@@ -299,17 +312,18 @@ export class IndicatorSelectionController {
       });
 
       // Create initial measurement schedule/reminders (optional enhancement)
-      await this.createMeasurementSchedule(selectionId, setupData);
+      await this.createMeasurementSchedule(selectionId!, setupData);
 
       // Invalidate caches
+      const { userId: logUserId } = getUserContext(req);
       await cacheService.invalidateByTags([
-        `user:${authReq.user.id}`, 
+        `user:${logUserId}`, 
         `selection:${selectionId}`,
         'indicators'
       ]);
 
       logger.info('Data collection setup completed', {
-        userId: authReq.user.id,
+        userId: logUserId,
         selectionId,
         indicatorId: selection.indicatorId,
         frequency: setupData.frequency,
@@ -321,7 +335,7 @@ export class IndicatorSelectionController {
         selection: {
           id: updatedSelection.id,
           indicatorId: updatedSelection.indicatorId,
-          indicatorName: updatedSelection.indicatorName,
+          indicatorName: selection.indicator?.name || 'Unknown',
           status: updatedSelection.status,
           frequency: setupData.frequency,
           startDate: setupData.startDate,
@@ -339,8 +353,9 @@ export class IndicatorSelectionController {
       });
 
     } catch (error) {
+      const { userId: logUserId } = getUserContext(req);
       logger.error('Failed to setup data collection', {
-        userId: authReq.user.id,
+        userId: logUserId,
         selectionId,
         setupData,
         error
@@ -353,36 +368,43 @@ export class IndicatorSelectionController {
    * Remove selected indicator
    */
   async removeSelectedIndicator(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
     const { selectionId } = req.params;
 
     Assert.validInput(!!selectionId, 'Selection ID is required');
 
     try {
       // Verify ownership and check if has data
+      const { userId, organizationId } = getUserContext(req);
       const selection = await prisma.userMeasurement.findFirst({
         where: {
-          id: selectionId,
-          userId: authReq.user.id,
-          organizationId: authReq.user.organizationId
+          id: selectionId!,
+          userId,
+          organizationId
         },
-        include: {
-          _count: {
-            select: { measurementValues: true }
-          }
+        select: {
+          id: true,
+          userId: true,
+          organizationId: true,
+          indicatorId: true,
+          status: true,
+          value: true,
+          notes: true,
+          createdAt: true
         }
       });
 
       Assert.exists(selection, 'Selected indicator not found');
 
-      // Check if has measurement data
-      if (selection._count.measurementValues > 0) {
+      // Check if has measurement data (value exists)
+      if (selection.status === 'active' || selection.value !== null) {
         // Archive instead of delete to preserve data integrity
         await prisma.userMeasurement.update({
-          where: { id: selectionId },
+          where: { id: selectionId! },
           data: { 
-            status: 'archived',
-            archivedAt: new Date()
+            status: 'archived'
           }
         });
 
@@ -393,7 +415,7 @@ export class IndicatorSelectionController {
       } else {
         // Safe to delete as no measurement data exists
         await prisma.userMeasurement.delete({
-          where: { id: selectionId }
+          where: { id: selectionId! }
         });
 
         res.json({
@@ -403,22 +425,24 @@ export class IndicatorSelectionController {
       }
 
       // Invalidate caches
+      const { userId: logUserId } = getUserContext(req);
       await cacheService.invalidateByTags([
-        `user:${authReq.user.id}`,
+        `user:${logUserId}`,
         `selection:${selectionId}`,
         'indicators'
       ]);
 
       logger.info('Indicator selection removed', {
-        userId: authReq.user.id,
+        userId: logUserId,
         selectionId,
         indicatorId: selection.indicatorId,
-        hadData: selection._count.measurementValues > 0
+        hadData: selection.status === 'active' || selection.value !== null
       });
 
     } catch (error) {
+      const { userId: logUserId } = getUserContext(req);
       logger.error('Failed to remove selected indicator', {
-        userId: authReq.user.id,
+        userId: logUserId,
         selectionId,
         error
       });

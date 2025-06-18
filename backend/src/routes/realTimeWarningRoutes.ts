@@ -44,7 +44,7 @@ router.post('/generate',
   async (req, res, next) => {
     try {
       const { triggerAction, context, actionData = {} } = req.body;
-      const { organizationId, userId } = req.user!;
+      const { organizationId, id: userId } = req.user!;
 
       // Build warning context
       const warningContext: WarningContext = {
@@ -99,8 +99,11 @@ router.post('/:warningId/interact',
   async (req, res, next) => {
     try {
       const { warningId } = req.params;
+      if (!warningId) {
+        throw new AppError('Warning ID is required', 400);
+      }
       const { action, context = {}, metadata = {} } = req.body;
-      const { organizationId, userId } = req.user!;
+      const { organizationId, id: userId } = req.user!;
 
       // Build warning context
       const warningContext: WarningContext = {
@@ -188,7 +191,7 @@ router.post('/preview',
   async (req, res, next) => {
     try {
       const { triggerAction, context, actionData = {} } = req.body;
-      const { organizationId, userId } = req.user!;
+      const { organizationId, id: userId } = req.user!;
 
       // Build warning context
       const warningContext: WarningContext = {
@@ -302,7 +305,7 @@ router.post('/bulk-preview',
   async (req, res, next) => {
     try {
       const { indicatorSelections, baseContext = {} } = req.body;
-      const { organizationId, userId } = req.user!;
+      const { organizationId, id: userId } = req.user!;
 
       const bulkResults = [];
 
@@ -341,7 +344,7 @@ router.post('/bulk-preview',
         selectionsWithWarnings: bulkResults.filter(r => r.warningCount > 0).length,
         selectionsBlocked: bulkResults.filter(r => r.shouldBlock).length,
         averageWarningsPerSelection: bulkResults.reduce((sum, r) => sum + r.warningCount, 0) / bulkResults.length,
-        mostCommonWarningType: this.getMostCommonWarningType(bulkResults)
+        mostCommonWarningType: getMostCommonWarningType(bulkResults)
       };
 
       res.json({

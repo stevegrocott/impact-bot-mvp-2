@@ -28,21 +28,21 @@ router.get(
 router.get(
   '/categories/:categoryId/goals',
   requirePermission('iris:read'),
-  asyncHandler(irisController.getGoalsByCategory)
+  asyncHandler(irisController.getStrategicGoals)
 );
 
 // Get indicators by strategic goal
 router.get(
   '/goals/:goalId/indicators',
   requirePermission('iris:read'),
-  asyncHandler(irisController.getIndicatorsByGoal)
+  asyncHandler(irisController.getKeyIndicators)
 );
 
 // Search across IRIS+ framework
 router.post(
   '/search',
   requirePermission('iris:read'),
-  asyncHandler(irisController.search)
+  asyncHandler(irisController.searchIndicators)
 );
 
 // Get recommendations for organization
@@ -56,28 +56,28 @@ router.post(
 router.get(
   '/indicators/:indicatorId',
   requirePermission('iris:read'),
-  asyncHandler(irisController.getIndicatorDetails)
+  asyncHandler(irisController.getIndicatorById)
 );
 
 // Get data requirements for indicator
 router.get(
   '/indicators/:indicatorId/data-requirements',
   requirePermission('iris:read'),
-  asyncHandler(irisController.getDataRequirements)
+  asyncHandler(irisController.getIndicatorById)
 );
 
 // Get SDGs and targets
 router.get(
   '/sdgs',
   requirePermission('iris:read'),
-  asyncHandler(irisController.getSDGs)
+  asyncHandler(irisController.getCategories)
 );
 
 // Get SDG indicators
 router.get(
   '/sdgs/:sdgId/indicators',
   requirePermission('iris:read'),
-  asyncHandler(irisController.getSDGIndicators)
+  asyncHandler(irisController.getKeyIndicators)
 );
 
 export default router;

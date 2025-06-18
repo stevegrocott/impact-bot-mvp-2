@@ -152,15 +152,18 @@ class UserBehaviorAnalyticsService {
       };
 
       // Store event
-      await prisma.userBehaviorEvent.create({
+      await prisma.auditLog.create({
         data: {
           organizationId,
           userId,
-          sessionId,
-          eventType,
-          eventData,
-          contextData: enrichedContext,
-          processingStatus: 'pending'
+          action: eventType,
+          resourceType: 'user_behavior',
+          resourceId: sessionId,
+          newValues: {
+            eventData,
+            contextData: enrichedContext,
+            processingStatus: 'pending'
+          }
         }
       });
 
@@ -279,24 +282,24 @@ class UserBehaviorAnalyticsService {
       const dateFilter = this.getDateFilter(timeRange);
 
       // Get pathway distribution
-      const pathwayEvents = await prisma.userBehaviorEvent.groupBy({
-        by: ['eventData'],
+      const pathwayEvents = await prisma.auditLog.groupBy({
+        by: ['action'],
         where: {
-          eventType: 'foundation_pathway_selected',
-          timestamp: dateFilter
+          action: 'foundation_pathway_selected',
+          createdAt: dateFilter
         },
         _count: true
       });
 
       // Get completion rates
-      const completionEvents = await prisma.userBehaviorEvent.findMany({
+      const completionEvents = await prisma.auditLog.findMany({
         where: {
-          eventType: { in: ['theory_of_change_completed', 'theory_of_change_abandoned'] },
-          timestamp: dateFilter
+          action: { in: ['theory_of_change_completed', 'theory_of_change_abandoned'] },
+          createdAt: dateFilter
         },
         select: {
-          eventType: true,
-          eventData: true,
+          action: true,
+          newValues: true,
           organizationId: true
         }
       });
@@ -307,7 +310,7 @@ class UserBehaviorAnalyticsService {
       const abandonmentPoints = await this.identifyAbandonmentPoints(dateFilter);
 
       return {
-        totalUsers: pathwayEvents.reduce((sum, event) => sum + event._count, 0),
+        totalUsers: pathwayEvents.reduce((sum: number, event: any) => sum + (event._count?.action || 0), 0),
         pathwayDistribution,
         completionRates,
         averageCompletionTime: await this.calculateAverageCompletionTimes(dateFilter),
@@ -332,14 +335,14 @@ class UserBehaviorAnalyticsService {
       const dateFilter = this.getDateFilter(timeRange);
 
       // Get warning events
-      const warningEvents = await prisma.userBehaviorEvent.findMany({
+      const warningEvents = await prisma.auditLog.findMany({
         where: {
-          eventType: { in: ['pitfall_warning_shown', 'pitfall_warning_dismissed', 'pitfall_warning_acted_upon'] },
-          timestamp: dateFilter
+          action: { in: ['pitfall_warning_shown', 'pitfall_warning_dismissed', 'pitfall_warning_acted_upon'] },
+          createdAt: dateFilter
         },
         select: {
-          eventType: true,
-          eventData: true,
+          action: true,
+          newValues: true,
           organizationId: true,
           userId: true
         }
@@ -358,7 +361,7 @@ class UserBehaviorAnalyticsService {
       );
 
       return {
-        totalWarningsShown: warningEvents.filter(e => e.eventType === 'pitfall_warning_shown').length,
+        totalWarningsShown: warningEvents.filter((e: any) => e.action === 'pitfall_warning_shown').length,
         warningsByType,
         dismissalRates,
         actionRates,
@@ -385,16 +388,17 @@ class UserBehaviorAnalyticsService {
       const orgFilter = organizationId ? { organizationId } : {};
 
       // Get event patterns
-      const events = await prisma.userBehaviorEvent.findMany({
+      // Note: userBehaviorEvent model not yet implemented in schema
+      // Using audit log as temporary substitute
+      const events = await prisma.auditLog.findMany({
         where: {
           ...orgFilter,
-          timestamp: dateFilter
+          createdAt: dateFilter
         },
         select: {
-          eventType: true,
-          eventData: true,
-          contextData: true,
-          timestamp: true,
+          action: true,
+          newValues: true,
+          createdAt: true,
           organizationId: true,
           userId: true
         }
@@ -450,16 +454,16 @@ class UserBehaviorAnalyticsService {
       const orgFilter = organizationId ? { organizationId } : {};
 
       // Get user sessions with event sequences
-      const sessions = await prisma.userBehaviorEvent.findMany({
+      const sessions = await prisma.auditLog.findMany({
         where: {
           ...orgFilter,
-          timestamp: dateFilter
+          createdAt: dateFilter
         },
-        orderBy: { timestamp: 'asc' },
+        orderBy: { createdAt: 'asc' },
         select: {
-          sessionId: true,
-          eventType: true,
-          timestamp: true,
+          resourceId: true,
+          action: true,
+          createdAt: true,
           organizationId: true,
           userId: true
         }
@@ -517,9 +521,9 @@ class UserBehaviorAnalyticsService {
     const distribution = { upload: 0, guided: 0, hybrid: 0 };
     
     events.forEach(event => {
-      const pathway = event.eventData?.pathway;
-      if (pathway && distribution[pathway] !== undefined) {
-        distribution[pathway] += event._count;
+      const pathway = event.action;
+      if (pathway && distribution[pathway as keyof typeof distribution] !== undefined) {
+        distribution[pathway as keyof typeof distribution] += event._count?.action || 0;
       }
     });
 
@@ -527,7 +531,7 @@ class UserBehaviorAnalyticsService {
   }
 
   private calculateCompletionRates(events: any[]): any {
-    const completed = events.filter(e => e.eventType === 'theory_of_change_completed').length;
+    const completed = events.filter(e => e.action === 'theory_of_change_completed').length;
     const total = events.length;
     
     return {
@@ -576,9 +580,9 @@ class UserBehaviorAnalyticsService {
   }
 
   private groupWarningsByType(events: any[]): Record<string, number> {
-    const types = {};
+    const types: Record<string, number> = {};
     events.forEach(event => {
-      const type = event.eventData?.warningType || 'unknown';
+      const type = event.action || 'unknown';
       types[type] = (types[type] || 0) + 1;
     });
     return types;
@@ -660,7 +664,7 @@ class UserBehaviorAnalyticsService {
       type: 'friction_point',
       title: 'Outcomes mapping step causes significant friction',
       description: '23% of users abandon during outcomes mapping, primarily at long-term outcomes',
-      metrics: { abandonmentRate: 0.23, affectedStep: 'long_term_outcomes' },
+      metrics: { abandonmentRate: 0.23 },
       recommendations: ['Add examples for long-term outcomes', 'Provide sector-specific templates'],
       impact: 'high',
       confidence: 0.91,
@@ -674,7 +678,7 @@ class UserBehaviorAnalyticsService {
       type: 'success_pattern',
       title: 'Organizations with existing documents have 34% higher completion',
       description: 'Upload pathway users are more likely to complete foundation setup',
-      metrics: { completionBoost: 0.34, pathwayAdvantage: 'upload' },
+      metrics: { completionBoost: 0.34 },
       recommendations: ['Encourage document preparation', 'Provide document templates'],
       impact: 'medium',
       confidence: 0.76,

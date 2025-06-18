@@ -10,42 +10,50 @@ import { hybridContentService } from '@/services/hybridContentService';
 import { cacheService } from '@/services/cache';
 import { logger, LLMLogger } from '@/utils/logger';
 import { AppError, ValidationError, Assert, asyncHandler } from '@/utils/errors';
+import { getUserContext } from '@/utils/routeHelpers';
 import { v4 as uuidv4 } from 'uuid';
+import * as Joi from 'joi';
+import { 
+  AuthenticatedRequest, 
+  ChatRequest, 
+  ConversationWithDetails,
+  ConversationContext,
+  ConversationMessage,
+  SendMessageSchema,
+  isAuthenticatedRequest,
+  isValidMessageRole,
+  hasRequiredProperty,
+  MessageRole
+} from '@/types';
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    email: string;
-    organizationId: string;
-  };
-}
+// Validation schemas
+const sendMessageSchema = Joi.object<SendMessageSchema>({
+  message: Joi.string().min(1).max(5000).required(),
+  conversationId: Joi.string().uuid().optional(),
+  intent: Joi.string().optional(),
+  complexity: Joi.string().valid('basic', 'intermediate', 'advanced').optional(),
+  focusAreas: Joi.array().items(Joi.string()).optional()
+});
 
-interface ChatRequest {
-  message: string;
-  conversationId?: string;
-  intent?: string;
-  complexity?: 'basic' | 'intermediate' | 'advanced';
-  focusAreas?: string[];
-}
+const analyzeIntentSchema = Joi.object({
+  query: Joi.string().min(1).max(2000).required(),
+  context: Joi.object().optional()
+});
 
-interface ConversationContext {
-  conversationId: string;
-  userId: string;
-  organizationId: string;
-  messages: Array<{
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    timestamp: Date;
-  }>;
-  contextData?: Record<string, any>;
-}
+const feedbackSchema = Joi.object({
+  feedback: Joi.string().valid('helpful', 'not_helpful', 'neutral').required(),
+  notes: Joi.string().max(500).optional()
+});
 
 export class ConversationController {
   /**
    * Start a new conversation or continue existing one
    */
   async chat(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
+    
     const { message, conversationId, intent, complexity, focusAreas }: ChatRequest = req.body;
 
     // Validate input
@@ -55,8 +63,8 @@ export class ConversationController {
     try {
       // Get or create conversation
       const conversation = conversationId 
-        ? await this.getConversation(conversationId, authReq.user.id)
-        : await this.createConversation(authReq.user.id, authReq.user.organizationId, undefined, message);
+        ? await this.getConversationWithDetails(conversationId, req.user.id)
+        : await this.createConversationWithDetails(req.user.id, req.user.organizationId, undefined, message);
 
       // Analyze user intent if not provided
       const analyzedIntent = intent || await this.analyzeUserIntent(message, conversation);
@@ -66,8 +74,8 @@ export class ConversationController {
         query: message,
         intent: analyzedIntent,
         userContext: {
-          userId: authReq.user.id,
-          organizationId: authReq.user.organizationId,
+          userId: req.user.id,
+          organizationId: req.user.organizationId,
           complexity: complexity || 'intermediate',
           focusAreas: focusAreas || []
         },
@@ -82,9 +90,9 @@ export class ConversationController {
       // Build conversation context
       const conversationContext: ConversationContext = {
         conversationId: conversation.id,
-        userId: authReq.user.id,
-        organizationId: authReq.user.organizationId,
-        messages: conversation.messages.map(msg => ({
+        userId: req.user.id,
+        organizationId: req.user.organizationId,
+        messages: conversation.messages.map((msg: any) => ({
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content,
           timestamp: msg.createdAt
@@ -133,7 +141,7 @@ export class ConversationController {
       // Log conversation metrics
       LLMLogger.logConversation(
         conversation.id,
-        'interaction',
+        'user',
         `User: ${message.substring(0, 100)}...`,
         {
           tokensUsed: llmResponse.tokensUsed,
@@ -161,8 +169,8 @@ export class ConversationController {
 
     } catch (error) {
       logger.error('Chat interaction failed', {
-        userId: authReq.user.id,
-        organizationId: authReq.user.organizationId,
+        userId: req.user.id,
+        organizationId: req.user.organizationId,
         message: message.substring(0, 100),
         error
       });
@@ -174,17 +182,19 @@ export class ConversationController {
    * Get conversation history
    */
   async getConversationHistory(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
     const { conversationId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
 
     Assert.validInput(!!conversationId, 'Conversation ID is required');
 
     try {
-      const conversation = await this.getConversation(conversationId, authReq.user.id);
+      const conversation = await this.getConversationById(conversationId!, req.user.id);
 
       const messages = await prisma.conversationMessage.findMany({
-        where: { conversationId },
+        where: { conversationId: conversationId! },
         orderBy: { createdAt: 'asc' },
         skip: Number(offset),
         take: Number(limit),
@@ -207,7 +217,7 @@ export class ConversationController {
     } catch (error) {
       logger.error('Failed to get conversation history', {
         conversationId,
-        userId: authReq.user.id,
+        userId: req.user.id,
         error
       });
       throw error;
@@ -218,14 +228,16 @@ export class ConversationController {
    * Get user's conversations
    */
   async getUserConversations(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
     const { limit = 20, offset = 0 } = req.query;
 
     try {
       const conversations = await prisma.conversation.findMany({
         where: {
-          userId: authReq.user.id,
-          organizationId: authReq.user.organizationId
+          userId: req.user.id,
+          organizationId: req.user.organizationId
         },
         orderBy: { updatedAt: 'desc' },
         skip: Number(offset),
@@ -266,7 +278,7 @@ export class ConversationController {
 
     } catch (error) {
       logger.error('Failed to get user conversations', {
-        userId: authReq.user.id,
+        userId: req.user.id,
         error
       });
       throw error;
@@ -277,14 +289,21 @@ export class ConversationController {
    * Get specific conversation with messages
    */
   async getConversation(req: Request, res: Response): Promise<void> {
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
     const conversationId = req.params.conversationId;
     const includeMessages = req.query.includeMessages === 'true';
+
+    if (!conversationId) {
+      throw new AppError('Conversation ID is required', 400, 'MISSING_CONVERSATION_ID');
+    }
 
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        userId: req.user!.id,
-        organizationId: req.organization!.id
+        userId: req.user.id,
+        organizationId: req.user.organizationId
       },
       include: {
         messages: includeMessages ? {
@@ -306,7 +325,7 @@ export class ConversationController {
 
     Assert.exists(conversation, 'Conversation not found');
 
-    res.json({
+    const response: any = {
       id: conversation.id,
       title: conversation.title,
       conversationType: conversation.conversationType,
@@ -315,28 +334,44 @@ export class ConversationController {
       completionPercentage: conversation.completionPercentage,
       isActive: conversation.isActive,
       createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-      ...(includeMessages && { messages: conversation.messages }),
-      recentRecommendations: conversation.recommendations
-    });
+      updatedAt: conversation.updatedAt
+    };
+
+    if (includeMessages && 'messages' in conversation) {
+      response.messages = conversation.messages;
+    }
+
+    if ('recommendations' in conversation) {
+      response.recentRecommendations = conversation.recommendations;
+    }
+
+    res.json(response);
   }
 
   /**
    * Send message to conversation
    */
   async sendMessage(req: Request, res: Response): Promise<void> {
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
+    
     const conversationId = req.params.conversationId;
     const { error, value } = sendMessageSchema.validate(req.body);
-    if (error) throw new AppError(error.details[0].message, 400, 'VALIDATION_ERROR');
+    if (error) throw new AppError(error.details?.[0]?.message || 'Validation error', 400, 'VALIDATION_ERROR');
 
-    const { content } = value;
+    const { message: content } = value;
+
+    if (!conversationId) {
+      throw new AppError('Conversation ID is required', 400, 'MISSING_CONVERSATION_ID');
+    }
 
     // Verify conversation ownership
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        userId: req.user!.id,
-        organizationId: req.organization!.id
+        userId: req.user.id,
+        organizationId: req.user.organizationId
       },
       include: {
         messages: {
@@ -348,7 +383,7 @@ export class ConversationController {
 
     Assert.exists(conversation, 'Conversation not found');
 
-    const result = await db.executeTransaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Add user message
       const userMessage = await tx.conversationMessage.create({
         data: {
@@ -359,18 +394,19 @@ export class ConversationController {
       });
 
       // Build conversation context for LLM
-      const conversationContext = {
+      const conversationContext: ConversationContext = {
         conversationId,
-        userId: req.user!.id,
-        organizationId: req.organization!.id,
+        userId: req.user.id,
+        organizationId: req.user.organizationId,
         messages: [
-          ...conversation.messages.map(m => ({
+          ...('messages' in conversation ? conversation.messages : []).map((m: any) => ({
             role: m.messageType as 'user' | 'assistant' | 'system',
-            content: m.content
+            content: m.content,
+            timestamp: m.createdAt || new Date()
           })),
-          { role: 'user' as const, content }
+          { role: 'user' as const, content, timestamp: new Date() }
         ],
-        contextData: conversation.contextData
+        contextData: conversation.contextData as Record<string, any>
       };
 
       // Get LLM response
@@ -384,7 +420,7 @@ export class ConversationController {
           content: response.content,
           tokensUsed: response.tokensUsed,
           processingTimeMs: response.processingTime,
-          metadata: response.metadata
+          ...(response.metadata && { metadata: response.metadata })
         }
       });
 
@@ -434,16 +470,18 @@ export class ConversationController {
     // Verify conversation ownership
     const conversation = await prisma.conversation.findFirst({
       where: {
-        id: conversationId,
+        ...(conversationId && { id: conversationId }),
         userId: req.user!.id,
-        organizationId: req.organization!.id
+        organizationId: req.user!.organizationId
       }
     });
 
     Assert.exists(conversation, 'Conversation not found');
 
-    const result = await db.paginate(prisma.conversationMessage, {
-      where: { conversationId },
+    const messages = await prisma.conversationMessage.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
+      where: { conversationId: conversationId! },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -452,14 +490,21 @@ export class ConversationController {
         tokensUsed: true,
         processingTimeMs: true,
         createdAt: true
-      },
-      page,
-      limit
+      }
+    });
+
+    const total = await prisma.conversationMessage.count({
+      where: { conversationId: conversationId! }
     });
 
     res.json({
-      messages: result.data,
-      pagination: result.meta
+      messages,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
   }
 
@@ -568,7 +613,7 @@ export class ConversationController {
    */
   async analyzeIntent(req: Request, res: Response): Promise<void> {
     const { error, value } = analyzeIntentSchema.validate(req.body);
-    if (error) throw new AppError(error.details[0].message, 400, 'VALIDATION_ERROR');
+    if (error) throw new AppError(error.details?.[0]?.message || 'Validation error', 400, 'VALIDATION_ERROR');
 
     const { query, context } = value;
 
@@ -606,11 +651,12 @@ export class ConversationController {
       }
     });
 
+    const { organizationId, userId } = getUserContext(req);
     const conversation = await prisma.conversation.updateMany({
       where: {
-        id: conversationId,
-        userId: req.user!.id,
-        organizationId: req.organization!.id
+        ...(conversationId && { id: conversationId }),
+        userId,
+        organizationId
       },
       data: updateData
     });
@@ -627,18 +673,18 @@ export class ConversationController {
    * Delete conversation
    */
   async deleteConversation(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
     const { conversationId } = req.params;
+    const { userId } = getUserContext(req);
 
     Assert.validInput(!!conversationId, 'Conversation ID is required');
 
     try {
       // Verify ownership
-      const conversation = await this.getConversation(conversationId, authReq.user.id);
+      const conversation = await this.getConversationById(conversationId!, userId);
 
       // Delete conversation and all messages (cascade)
       await prisma.conversation.delete({
-        where: { id: conversationId }
+        where: { id: conversationId! }
       });
 
       // Invalidate related cache
@@ -649,7 +695,7 @@ export class ConversationController {
     } catch (error) {
       logger.error('Failed to delete conversation', {
         conversationId,
-        userId: authReq.user.id,
+        userId,
         error
       });
       throw error;
@@ -661,13 +707,14 @@ export class ConversationController {
    */
   async getRecommendations(req: Request, res: Response): Promise<void> {
     const conversationId = req.params.conversationId;
+    const { userId, organizationId } = getUserContext(req);
 
     const recommendations = await prisma.conversationRecommendation.findMany({
       where: {
-        conversationId,
+        ...(conversationId && { conversationId }),
         conversation: {
-          userId: req.user!.id,
-          organizationId: req.organization!.id
+          userId,
+          organizationId
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -693,18 +740,19 @@ export class ConversationController {
    */
   async provideFeedback(req: Request, res: Response): Promise<void> {
     const { conversationId, recommendationId } = req.params;
+    const { userId, organizationId } = getUserContext(req);
     const { error, value } = feedbackSchema.validate(req.body);
-    if (error) throw new AppError(error.details[0].message, 400, 'VALIDATION_ERROR');
+    if (error) throw new AppError(error.details?.[0]?.message || 'Validation error', 400, 'VALIDATION_ERROR');
 
     const { feedback, notes } = value;
 
     const recommendation = await prisma.conversationRecommendation.updateMany({
       where: {
-        id: recommendationId,
-        conversationId,
+        ...(recommendationId && { id: recommendationId }),
+        ...(conversationId && { conversationId }),
         conversation: {
-          userId: req.user!.id,
-          organizationId: req.organization!.id
+          userId,
+          organizationId
         }
       },
       data: {
@@ -727,7 +775,7 @@ export class ConversationController {
   /**
    * Get conversation with authorization check
    */
-  private async getConversation(conversationId: string, userId: string) {
+  private async getConversationById(conversationId: string, userId: string) {
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
@@ -759,8 +807,8 @@ export class ConversationController {
    * Rename conversation
    */
   async renameConversation(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
     const { conversationId } = req.params;
+    const { userId } = getUserContext(req);
     const { title } = req.body;
 
     Assert.validInput(!!conversationId, 'Conversation ID is required');
@@ -769,11 +817,11 @@ export class ConversationController {
 
     try {
       // Verify ownership
-      const conversation = await this.getConversation(conversationId, authReq.user.id);
+      const conversation = await this.getConversationById(conversationId!, userId);
 
       // Update title
       const updatedConversation = await prisma.conversation.update({
-        where: { id: conversationId },
+        where: { id: conversationId! },
         data: { 
           title: title.trim(),
           updatedAt: new Date()
@@ -781,10 +829,10 @@ export class ConversationController {
       });
 
       // Invalidate cache
-      await cacheService.invalidateByTags([`conversation:${conversationId}`, `user:${authReq.user.id}`]);
+      await cacheService.invalidateByTags([`conversation:${conversationId}`, `user:${userId}`]);
 
       logger.info('Conversation renamed', {
-        userId: authReq.user.id,
+        userId,
         conversationId,
         oldTitle: conversation.title,
         newTitle: title
@@ -798,7 +846,7 @@ export class ConversationController {
 
     } catch (error) {
       logger.error('Failed to rename conversation', {
-        userId: authReq.user.id,
+        userId,
         conversationId,
         title,
         error
@@ -811,17 +859,17 @@ export class ConversationController {
    * Generate smart conversation title based on content
    */
   async generateConversationTitle(req: Request, res: Response): Promise<void> {
-    const authReq = req as AuthenticatedRequest;
     const { conversationId } = req.params;
+    const { userId } = getUserContext(req);
 
     Assert.validInput(!!conversationId, 'Conversation ID is required');
 
     try {
-      const conversation = await this.getConversation(conversationId, authReq.user.id);
+      const conversation = await this.getConversationById(conversationId!, userId);
       
       // Get first few messages for context
       const messages = await prisma.conversationMessage.findMany({
-        where: { conversationId },
+        where: { conversationId: conversationId! },
         orderBy: { createdAt: 'asc' },
         take: 5,
         select: {
@@ -846,7 +894,7 @@ export class ConversationController {
 
       // Update conversation with generated title
       const updatedConversation = await prisma.conversation.update({
-        where: { id: conversationId },
+        where: { id: conversationId! },
         data: { 
           title: generatedTitle,
           updatedAt: new Date()
@@ -854,10 +902,10 @@ export class ConversationController {
       });
 
       // Invalidate cache
-      await cacheService.invalidateByTags([`conversation:${conversationId}`, `user:${authReq.user.id}`]);
+      await cacheService.invalidateByTags([`conversation:${conversationId}`, `user:${userId}`]);
 
       logger.info('Conversation title generated', {
-        userId: authReq.user.id,
+        userId,
         conversationId,
         generatedTitle,
         messageCount: messages.length
@@ -872,12 +920,70 @@ export class ConversationController {
 
     } catch (error) {
       logger.error('Failed to generate conversation title', {
-        userId: authReq.user.id,
+        userId,
         conversationId,
         error
       });
       throw error;
     }
+  }
+
+  /**
+   * Get conversation with detailed information
+   */
+  private async getConversationWithDetails(conversationId: string, userId: string): Promise<ConversationWithDetails> {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        userId: userId
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 20
+        },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            industry: true
+          }
+        },
+        _count: {
+          select: { messages: true }
+        }
+      }
+    });
+
+    Assert.exists(conversation, 'Conversation not found');
+    
+    // Transform the conversation to match ConversationWithDetails type
+    const transformedConversation: ConversationWithDetails = {
+      ...conversation,
+      messages: conversation.messages.map(msg => ({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        messageType: msg.messageType,
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content,
+        metadata: msg.metadata,
+        timestamp: msg.createdAt,
+        isProcessed: true, // Assume processed since it's in the DB
+        processingTimeMs: msg.processingTimeMs,
+        createdAt: msg.createdAt,
+        updatedAt: msg.createdAt // Use createdAt as fallback
+      }))
+    };
+    
+    return transformedConversation;
+  }
+
+  /**
+   * Create conversation with detailed information
+   */
+  private async createConversationWithDetails(userId: string, organizationId: string, title?: string, firstMessage?: string): Promise<ConversationWithDetails> {
+    const conversation = await this.createConversation(userId, organizationId, title, firstMessage);
+    return this.getConversationWithDetails(conversation.id, userId);
   }
 
   /**
@@ -890,7 +996,7 @@ export class ConversationController {
         userId,
         organizationId,
         title: title || 'New Conversation',
-        status: 'active'
+        isActive: true
       },
       include: {
         organization: {
@@ -941,6 +1047,7 @@ export class ConversationController {
     const messageData = messages.map(msg => ({
       id: uuidv4(),
       conversationId,
+      messageType: 'chat', // Default message type
       role: msg.role,
       content: msg.content,
       metadata: msg.metadata || {}
@@ -1096,7 +1203,7 @@ The title should capture the main topic or intent related to impact measurement 
   /**
    * Build system prompt for conversation type
    */
-  private buildSystemPrompt(conversationType: string, contextData?: any): string {
+  private buildTypeSpecificSystemPrompt(conversationType: string, contextData?: any): string {
     const basePrompt = `You are an expert assistant for impact measurement using the IRIS+ framework.`;
     
     const typeSpecificPrompts = {

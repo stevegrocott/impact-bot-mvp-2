@@ -4,7 +4,7 @@
  */
 
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthService } from '@/middleware/auth';
 import { prisma } from '@/config/database';
@@ -477,10 +477,13 @@ export class AuthController {
     }
 
     try {
-      // Find user by email for simplified verification
+      // Find user with verification token (now supported by schema)
       const user = await prisma.user.findFirst({
         where: {
-          email: { contains: '@' } // Simplified - in production use proper token storage
+          emailVerificationToken: token,
+          emailVerificationExpires: {
+            gt: new Date()
+          }
         }
       });
 
@@ -488,12 +491,14 @@ export class AuthController {
         throw new ValidationError('Invalid or expired verification token');
       }
 
-      // Update user as verified (simplified)
+      // Update user as verified
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          // Email verification handled via external service
-          updatedAt: new Date()
+          isEmailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpires: null,
+          emailVerifiedAt: new Date()
         }
       });
 
@@ -545,9 +550,14 @@ export class AuthController {
       const resetToken = uuidv4();
       const resetExpires = new Date(Date.now() + 3600000); // 1 hour
 
-      // Store reset token in cache service instead of database
-      // await CacheService.set(`password_reset:${resetToken}`, user.id, 3600);
-      // Simplified for current schema - token stored in memory/cache
+      // Save reset token to database
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetToken: resetToken,
+          passwordResetExpires: resetExpires
+        }
+      });
 
       // Increment rate limit counter
       const currentCount = parseInt(recentRequests || '0') + 1;
@@ -589,10 +599,13 @@ export class AuthController {
     }
 
     try {
-      // Find user by email for simplified reset
+      // Find user with valid reset token
       const user = await prisma.user.findFirst({
         where: {
-          email: { contains: '@' } // Simplified - in production verify token from cache
+          passwordResetToken: token,
+          passwordResetExpires: {
+            gt: new Date()
+          }
         }
       });
 
@@ -603,12 +616,14 @@ export class AuthController {
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-      // Update user password
+      // Update password and clear reset token
       await prisma.user.update({
         where: { id: user.id },
         data: {
           passwordHash: hashedPassword,
-          updatedAt: new Date()
+          passwordResetToken: null,
+          passwordResetExpires: null,
+          passwordChangedAt: new Date()
         }
       });
 

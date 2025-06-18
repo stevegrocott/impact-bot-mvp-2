@@ -45,8 +45,9 @@ router.get('/status', async (req, res, next) => {
       data: foundationStatus
     });
 
-  } catch (error) {
-    logger.error('Error getting foundation status:', { error: error.message, organizationId: req.user?.organizationId });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error getting foundation status:', { error: errorMessage, organizationId: req.user?.organizationId });
     next(new AppError('Failed to get foundation status', 500, 'FOUNDATION_STATUS_ERROR'));
   }
 });
@@ -84,8 +85,9 @@ router.get('/readiness', async (req, res, next) => {
       data: readiness
     });
 
-  } catch (error) {
-    logger.error('Error getting foundation readiness:', { error: error.message, organizationId: req.user?.organizationId });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error getting foundation readiness:', { error: errorMessage, organizationId: req.user?.organizationId });
     next(new AppError('Failed to get foundation readiness', 500, 'FOUNDATION_READINESS_ERROR'));
   }
 });
@@ -129,8 +131,9 @@ router.post('/assess', async (req, res, next) => {
       message: 'Foundation assessment completed'
     });
 
-  } catch (error) {
-    logger.error('Error assessing foundation:', { error: error.message, organizationId: req.user?.organizationId });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Error assessing foundation:', { error: errorMessage, organizationId: req.user?.organizationId });
     next(new AppError('Failed to assess foundation', 500, 'FOUNDATION_ASSESS_ERROR'));
   }
 });

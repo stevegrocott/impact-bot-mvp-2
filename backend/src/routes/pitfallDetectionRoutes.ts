@@ -129,7 +129,8 @@ router.post('/detect-proxy',
         throw new AppError('Indicator not found', 404);
       }
 
-      const proxyDetection = await pitfallDetectionService.detectProxyMetric(indicator);
+      const proxyDetectionResult = await pitfallDetectionService.detectProxyMetrics([indicator]);
+      const proxyDetection = proxyDetectionResult.proxyIndicators[0] || { isProxy: false, confidence: 0, proxyFor: '', explanation: '', directAlternatives: [], triangulationOptions: [] };
 
       // Track proxy detection for analytics
       if (proxyDetection.isProxy) {
@@ -246,7 +247,7 @@ router.post('/generate-outcome-alternatives',
       const classification = await pitfallDetectionService.classifyImpactLevel(indicator);
       
       if (classification.level !== 'output') {
-        return res.json({
+        res.json({
           success: true,
           data: {
             indicatorId,
@@ -255,6 +256,7 @@ router.post('/generate-outcome-alternatives',
           },
           message: 'No alternatives needed - indicator is not an output measure'
         });
+        return;
       }
 
       const alternatives = await pitfallDetectionService.generateOutcomeAlternatives(indicator);
@@ -327,11 +329,8 @@ router.post('/bulk-analysis',
       ]);
 
       // Detect proxies for each indicator
-      const proxyDetections = await Promise.all(
-        indicators.map(indicator => 
-          pitfallDetectionService.detectProxyMetric(indicator)
-        )
-      );
+      const proxyDetectionResult = await pitfallDetectionService.detectProxyMetrics(indicators);
+      const proxyDetections = proxyDetectionResult.proxyIndicators;
 
       // Combine all analysis results
       const bulkAnalysis = {
@@ -348,7 +347,7 @@ router.post('/bulk-analysis',
           outputCount: individualClassifications.filter(c => c.level === 'output').length,
           outcomeCount: individualClassifications.filter(c => c.level === 'outcome').length,
           impactCount: individualClassifications.filter(c => c.level === 'impact').length,
-          proxyCount: proxyDetections.filter(p => p.isProxy).length,
+          proxyCount: proxyDetections.length,
           warningCount: portfolioAnalysis.warnings.length,
           isOverEngineered: overEngineeringAssessment.isOverEngineered
         }

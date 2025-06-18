@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { config } from '@/config/environment';
 import { prisma } from '@/config/database';
 import { cacheService } from '@/services/cache';
@@ -17,6 +17,17 @@ declare global {
     interface Request {
       user?: AuthenticatedUser;
       organization?: UserOrganization;
+      sessionId?: string;
+      foundationStatus?: {
+        hasTheoryOfChange: boolean;
+        foundationReadiness: any;
+        hasDecisionMapping: boolean;
+        decisionCount: number;
+        allowsBasicAccess: boolean;
+        allowsIntermediateAccess: boolean;
+        allowsAdvancedAccess: boolean;
+        blockingReasons: string[];
+      };
     }
   }
 }
@@ -33,6 +44,7 @@ interface JwtPayload {
 interface AuthenticatedUser {
   id: string;
   email: string;
+  organizationId: string;
   firstName?: string;
   lastName?: string;
   isActive: boolean;
@@ -67,15 +79,17 @@ export class AuthService {
     const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
       userId,
       email,
-      organizationId,
-      roleId
+      ...(organizationId && { organizationId }),
+      ...(roleId && { roleId })
     };
 
-    return jwt.sign(payload, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRES_IN,
+    const secret = config.JWT_SECRET;
+    
+    return jwt.sign(payload, secret, {
+      expiresIn: config.JWT_EXPIRES_IN || '24h',
       issuer: 'impact-bot-v2',
       audience: 'impact-bot-users'
-    });
+    } as jwt.SignOptions);
   }
 
   /**
@@ -131,12 +145,16 @@ export class AuthService {
       return null;
     }
 
+    // Find primary organization or use first one
+    const primaryOrg = user.userOrganizations.find(uo => uo.isPrimary) || user.userOrganizations[0];
+    
     // Transform to AuthenticatedUser format
     const authenticatedUser: AuthenticatedUser = {
       id: user.id,
       email: user.email,
-      firstName: user.firstName || undefined,
-      lastName: user.lastName || undefined,
+      organizationId: primaryOrg?.organization.id || '',
+      ...(user.firstName && { firstName: user.firstName }),
+      ...(user.lastName && { lastName: user.lastName }),
       isActive: user.isActive,
       organizations: user.userOrganizations.map(uo => ({
         id: uo.organization.id,
@@ -262,8 +280,10 @@ export async function authMiddleware(
     } else if (user.organizations.length > 0) {
       // Use primary organization or first available
       const primaryOrg = user.organizations.find(org => org.isPrimary) || user.organizations[0];
-      user.currentOrganization = primaryOrg;
-      req.organization = primaryOrg;
+      if (primaryOrg) {
+        user.currentOrganization = primaryOrg;
+        req.organization = primaryOrg;
+      }
     }
 
     // Attach user to request
@@ -273,8 +293,8 @@ export async function authMiddleware(
     SecurityLogger.logAuthAttempt(
       user.email,
       true,
-      req.ip,
-      req.headers['user-agent']
+      req.ip || 'unknown',
+      req.headers['user-agent'] || 'unknown'
     );
 
     next();
@@ -284,8 +304,8 @@ export async function authMiddleware(
       SecurityLogger.logAuthAttempt(
         'unknown',
         false,
-        req.ip,
-        req.headers['user-agent']
+        req.ip || 'unknown',
+        req.headers['user-agent'] || 'unknown'
       );
       
       res.status(error.statusCode).json({

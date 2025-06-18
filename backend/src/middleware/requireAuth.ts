@@ -4,25 +4,22 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { config } from '@/config/environment';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
+import { AuthenticatedUser, UserOrganization } from '@/types';
+import { JsonValue } from '@prisma/client/runtime/library';
 
-export interface AuthenticatedUser {
-  userId: string;
-  organizationId: string;
-  email: string;
-  role: string;
-}
-
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
-    }
+/**
+ * Convert JsonValue to string array safely
+ */
+function convertJsonArrayToStringArray(jsonValue: JsonValue): string[] {
+  if (Array.isArray(jsonValue)) {
+    return jsonValue.filter((item): item is string => typeof item === 'string');
   }
+  return [];
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -67,12 +64,38 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Get primary organization or first organization
     const primaryUserOrg = user.userOrganizations.find(uo => uo.isPrimary) || user.userOrganizations[0];
 
+    if (!primaryUserOrg) {
+      throw new AppError('No organization found for user', 401);
+    }
+
     // Attach user info to request
     req.user = {
-      userId: user.id,
-      organizationId: primaryUserOrg.organizationId,
+      id: user.id,
       email: user.email,
-      role: primaryUserOrg.role.name
+      organizationId: primaryUserOrg.organizationId,
+      ...(user.firstName && { firstName: user.firstName }),
+      ...(user.lastName && { lastName: user.lastName }),
+      isActive: user.isActive,
+      organizations: user.userOrganizations.map(uo => ({
+        id: uo.organization.id,
+        name: uo.organization.name,
+        isPrimary: uo.isPrimary,
+        role: {
+          id: uo.role.id,
+          name: uo.role.name,
+          permissions: convertJsonArrayToStringArray(uo.role.permissions)
+        }
+      })),
+      currentOrganization: {
+        id: primaryUserOrg.organization.id,
+        name: primaryUserOrg.organization.name,
+        isPrimary: primaryUserOrg.isPrimary,
+        role: {
+          id: primaryUserOrg.role.id,
+          name: primaryUserOrg.role.name,
+          permissions: convertJsonArrayToStringArray(primaryUserOrg.role.permissions)
+        }
+      }
     };
 
     next();

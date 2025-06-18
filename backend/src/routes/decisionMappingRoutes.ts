@@ -3,13 +3,14 @@
  * "What decisions will this data inform?" - Prevent over-engineering and ensure measurement utility
  */
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { requireAuth } from '@/middleware/requireAuth';
 import { validateRequestBody } from '@/middleware/validateRequestBody';
 import { decisionMappingService } from '@/services/decisionMappingService';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
+import { getUserContext } from '@/utils/routeHelpers';
 
 const router = Router();
 
@@ -20,41 +21,30 @@ router.use(requireAuth);
  * POST /api/v1/decision-mapping/start
  * Start guided decision mapping process
  */
-router.post('/start',
+router.post('/start', 
   validateRequestBody({
     type: 'object',
     properties: {
-      existingDecisions: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            question: { type: 'string' },
-            decisionType: { type: 'string', enum: ['strategic', 'operational', 'tactical', 'adaptive'] },
-            stakeholders: { type: 'array', items: { type: 'string' } },
-            urgency: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] }
-          }
-        }
-      }
-    }
+      organizationContext: { type: 'object' },
+      existingDecisions: { type: 'array' }
+    },
+    required: []
   }),
   async (req, res, next) => {
     try {
-      const { organizationId, userId } = req.user!;
-      const { existingDecisions } = req.body;
+      const { organizationId } = getUserContext(req);
+      const { organizationContext, existingDecisions = [] } = req.body;
 
-      logger.info(`Starting decision mapping for organization ${organizationId}`);
-
-      const mappingSession = await decisionMappingService.startDecisionMapping(
+      const guidanceSession = await decisionMappingService.startDecisionMapping(
         organizationId,
-        userId,
+        req.user!.id,
         { existingDecisions }
       );
 
       res.json({
         success: true,
-        data: mappingSession,
-        message: 'Decision mapping process started successfully'
+        data: guidanceSession,
+        message: 'Decision mapping session started'
       });
     } catch (error) {
       next(error);
@@ -70,26 +60,26 @@ router.post('/continue',
   validateRequestBody({
     type: 'object',
     properties: {
-      conversationId: { type: 'string' },
-      userResponse: { type: 'string', minLength: 1 }
+      sessionId: { type: 'string' },
+      userResponse: { type: 'string' },
+      context: { type: 'object' }
     },
-    required: ['conversationId', 'userResponse']
+    required: ['sessionId', 'userResponse']
   }),
   async (req, res, next) => {
     try {
-      const { conversationId, userResponse } = req.body;
+      const { organizationId } = getUserContext(req);
+      const { sessionId, userResponse, context } = req.body;
 
-      const result = await decisionMappingService.continueDecisionMapping(
-        conversationId,
+      const nextStep = await decisionMappingService.continueDecisionMapping(
+        sessionId,
         userResponse
       );
 
       res.json({
         success: true,
-        data: result,
-        message: result.isComplete 
-          ? 'Decision mapping completed successfully!'
-          : 'Decision mapping continued'
+        data: nextStep,
+        message: 'Decision mapping step processed'
       });
     } catch (error) {
       next(error);
@@ -99,11 +89,11 @@ router.post('/continue',
 
 /**
  * GET /api/v1/decision-mapping/decisions
- * Get mapped decisions for organization
+ * Get all mapped decisions for organization
  */
 router.get('/decisions', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     const decisions = await prisma.decisionQuestion.findMany({
       where: { organizationId },
@@ -134,23 +124,15 @@ router.post('/assess-utility',
   validateRequestBody({
     type: 'object',
     properties: {
-      indicatorIds: {
-        type: 'array',
-        items: { type: 'string' },
-        minItems: 1
-      },
-      decisionQuestionIds: {
-        type: 'array',
-        items: { type: 'string' },
-        minItems: 1
-      }
+      indicatorIds: { type: 'array', items: { type: 'string' } },
+      decisionQuestionIds: { type: 'array', items: { type: 'string' } }
     },
     required: ['indicatorIds', 'decisionQuestionIds']
   }),
   async (req, res, next) => {
     try {
       const { indicatorIds, decisionQuestionIds } = req.body;
-      const { organizationId } = req.user!;
+      const { organizationId } = getUserContext(req);
 
       // Get decision questions
       const decisions = await prisma.decisionQuestion.findMany({
@@ -166,12 +148,15 @@ router.post('/assess-utility',
 
       logger.info(`Assessing utility of ${indicatorIds.length} indicators against ${decisions.length} decisions`);
 
-      const utilities = await decisionMappingService.assessIndicatorUtility(indicatorIds, decisions as any);
+      const utilityAssessment = await decisionMappingService.assessIndicatorUtility(
+        indicatorIds,
+        decisions as any
+      );
 
       res.json({
         success: true,
-        data: utilities,
-        message: `Utility assessment complete for ${indicatorIds.length} indicators`
+        data: utilityAssessment,
+        message: 'Indicator utility assessment completed'
       });
     } catch (error) {
       next(error);
@@ -181,24 +166,21 @@ router.post('/assess-utility',
 
 /**
  * POST /api/v1/decision-mapping/minimum-viable-measurement
- * Generate minimum viable measurement recommendations
+ * Generate minimum viable measurement plan
  */
 router.post('/minimum-viable-measurement',
   validateRequestBody({
     type: 'object',
     properties: {
-      decisionQuestionIds: {
-        type: 'array',
-        items: { type: 'string' },
-        minItems: 1
-      }
+      decisionQuestionIds: { type: 'array', items: { type: 'string' } },
+      resourceConstraints: { type: 'object' }
     },
     required: ['decisionQuestionIds']
   }),
   async (req, res, next) => {
     try {
-      const { decisionQuestionIds } = req.body;
-      const { organizationId } = req.user!;
+      const { decisionQuestionIds, resourceConstraints } = req.body;
+      const { organizationId } = getUserContext(req);
 
       // Get decision questions
       const decisions = await prisma.decisionQuestion.findMany({
@@ -219,172 +201,7 @@ router.post('/minimum-viable-measurement',
       res.json({
         success: true,
         data: minimumViable,
-        message: 'Minimum viable measurement recommendations generated'
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/**
- * PUT /api/v1/decision-mapping/decisions/:id
- * Update a decision question
- */
-router.put('/decisions/:id',
-  validateRequestBody({
-    type: 'object',
-    properties: {
-      question: { type: 'string' },
-      decisionType: { type: 'string', enum: ['strategic', 'operational', 'tactical', 'adaptive'] },
-      stakeholders: { type: 'array', items: { type: 'string' } },
-      frequency: { type: 'string', enum: ['ongoing', 'quarterly', 'annually', 'one-time'] },
-      urgency: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] },
-      evidenceNeeds: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            type: { type: 'string', enum: ['quantitative', 'qualitative', 'mixed'] },
-            description: { type: 'string' },
-            minimumQuality: { type: 'string', enum: ['rough', 'good', 'rigorous'] }
-          }
-        }
-      },
-      changeReason: { type: 'string' }
-    },
-    required: ['changeReason']
-  }),
-  async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const { organizationId, userId } = req.user!;
-      const { changeReason, ...updateData } = req.body;
-
-      // Get existing decision
-      const existingDecision = await prisma.decisionQuestion.findFirst({
-        where: { id, organizationId }
-      });
-
-      if (!existingDecision) {
-        throw new AppError('Decision question not found', 404);
-      }
-
-      // Update decision
-      const updatedDecision = await prisma.decisionQuestion.update({
-        where: { id },
-        data: updateData
-      });
-
-      // Track evolution
-      await decisionMappingService.trackDecisionEvolution(
-        id,
-        'question_refined',
-        existingDecision,
-        updatedDecision,
-        changeReason,
-        userId
-      );
-
-      res.json({
-        success: true,
-        data: updatedDecision,
-        message: 'Decision question updated successfully'
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-/**
- * GET /api/v1/decision-mapping/decisions/:id/evolution
- * Get evolution history for a decision question
- */
-router.get('/decisions/:id/evolution', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { organizationId } = req.user!;
-
-    // Verify decision belongs to organization
-    const decision = await prisma.decisionQuestion.findFirst({
-      where: { id, organizationId }
-    });
-
-    if (!decision) {
-      throw new AppError('Decision question not found', 404);
-    }
-
-    const evolution = await prisma.decisionEvolution.findMany({
-      where: { decisionQuestionId: id },
-      orderBy: { changedAt: 'desc' },
-      include: {
-        changedByUser: {
-          select: { email: true, firstName: true, lastName: true }
-        }
-      }
-    });
-
-    res.json({
-      success: true,
-      data: evolution,
-      message: `Retrieved ${evolution.length} evolution events`
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * DELETE /api/v1/decision-mapping/decisions/:id
- * Mark a decision question as resolved
- */
-router.delete('/decisions/:id',
-  validateRequestBody({
-    type: 'object',
-    properties: {
-      resolutionReason: { type: 'string', minLength: 1 }
-    },
-    required: ['resolutionReason']
-  }),
-  async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const { organizationId, userId } = req.user!;
-      const { resolutionReason } = req.body;
-
-      // Get decision
-      const decision = await prisma.decisionQuestion.findFirst({
-        where: { id, organizationId }
-      });
-
-      if (!decision) {
-        throw new AppError('Decision question not found', 404);
-      }
-
-      // Track resolution
-      await decisionMappingService.trackDecisionEvolution(
-        id,
-        'decision_resolved',
-        decision,
-        { resolved: true, resolutionReason },
-        resolutionReason,
-        userId
-      );
-
-      // Soft delete by updating status
-      await prisma.decisionQuestion.update({
-        where: { id },
-        data: { 
-          status: 'resolved',
-          resolvedAt: new Date(),
-          resolutionReason
-        }
-      });
-
-      res.json({
-        success: true,
-        message: 'Decision question marked as resolved'
+        message: 'Minimum viable measurement plan generated'
       });
     } catch (error) {
       next(error);
@@ -394,23 +211,15 @@ router.delete('/decisions/:id',
 
 /**
  * GET /api/v1/decision-mapping/analytics
- * Get decision mapping analytics for organization
+ * Get decision mapping analytics and insights
  */
 router.get('/analytics', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     const analytics = await prisma.decisionQuestion.groupBy({
-      by: ['decisionType', 'urgency'],
+      by: ['decisionType', 'status'],
       where: { organizationId },
-      _count: true
-    });
-
-    const evolutionStats = await prisma.decisionEvolution.groupBy({
-      by: ['changeType'],
-      where: {
-        decisionQuestion: { organizationId }
-      },
       _count: true
     });
 
@@ -420,12 +229,8 @@ router.get('/analytics', async (req, res, next) => {
         acc[item.decisionType] = (acc[item.decisionType] || 0) + item._count;
         return acc;
       }, {}),
-      byUrgency: analytics.reduce((acc: any, item) => {
-        acc[item.urgency] = (acc[item.urgency] || 0) + item._count;
-        return acc;
-      }, {}),
-      evolutionActivity: evolutionStats.reduce((acc: any, item) => {
-        acc[item.changeType] = item._count;
+      byStatus: analytics.reduce((acc: any, item) => {
+        acc[item.status] = (acc[item.status] || 0) + item._count;
         return acc;
       }, {})
     };

@@ -12,7 +12,7 @@ import { DatabaseError, AppError } from '@/utils/errors';
 interface CategoryWithStats {
   id: string;
   name: string;
-  description?: string;
+  description?: string | undefined;
   themeCount: number;
   goalCount: number;
   indicatorCount: number;
@@ -22,7 +22,7 @@ interface CategoryWithStats {
 interface ThemeWithGoals {
   id: string;
   name: string;
-  description?: string;
+  description?: string | undefined;
   goalCount: number;
   goals: StrategicGoalWithIndicators[];
 }
@@ -30,8 +30,8 @@ interface ThemeWithGoals {
 interface StrategicGoalWithIndicators {
   id: string;
   name: string;
-  description?: string;
-  definition?: string;
+  description?: string | undefined;
+  definition?: string | undefined;
   indicatorCount: number;
   sdgs: SDGReference[];
   keyDimensions: KeyDimensionReference[];
@@ -41,22 +41,22 @@ interface StrategicGoalWithIndicators {
 interface IndicatorWithData {
   id: string;
   name: string;
-  description?: string;
-  calculationGuidance?: string;
-  whyImportant?: string;
+  description?: string | undefined;
+  calculationGuidance?: string | undefined;
+  whyImportant?: string | undefined;
   complexityLevel: string;
-  dataCollectionFrequency?: string;
+  dataCollectionFrequency?: string | undefined;
   dataRequirements: DataRequirement[];
 }
 
 interface DataRequirement {
   id: string;
   name: string;
-  description?: string;
-  definition?: string;
-  calculation?: string;
-  dataType?: string;
-  unitOfMeasurement?: string;
+  description?: string | undefined;
+  definition?: string | undefined;
+  calculation?: string | undefined;
+  dataType?: string | undefined;
+  unitOfMeasurement?: string | undefined;
   isRequired: boolean;
   calculationWeight: number;
 }
@@ -65,13 +65,13 @@ interface SDGReference {
   id: string;
   sdgNumber: number;
   name: string;
-  colorHex?: string;
+  colorHex?: string | undefined;
 }
 
 interface KeyDimensionReference {
   id: string;
   name: string;
-  description?: string;
+  description?: string | undefined;
 }
 
 interface SearchFilters {
@@ -629,6 +629,316 @@ export class IrisService {
       logger.error('IRIS+ service health check failed', { error });
       return false;
     }
+  }
+
+
+  /**
+   * Get all impact categories
+   */
+  async getCategories(): Promise<CategoryWithStats[]> {
+    return this.getCategoriesWithHierarchy();
+  }
+
+  /**
+   * Get impact themes by category
+   */
+  async getThemesByCategory(categoryId: string): Promise<ThemeWithGoals[]> {
+    const categories = await this.getCategoriesWithHierarchy();
+    const category = categories.find(c => c.id === categoryId);
+    return category ? category.themes : [];
+  }
+
+  /**
+   * Get strategic goals
+   */
+  async getStrategicGoals(): Promise<StrategicGoalWithIndicators[]> {
+    const cacheKey = 'strategic_goals_all';
+    return IrisCacheService.getCachedOrFetch(
+      cacheKey,
+      async () => {
+        const goals = await prisma.irisStrategicGoal.findMany({
+          orderBy: { name: 'asc' },
+          include: {
+            goalSdgs: {
+              include: {
+                sdg: true
+              }
+            },
+            goalKeyDimensions: {
+              include: {
+                keyDimension: true
+              }
+            }
+          }
+        });
+
+        return goals.map(goal => ({
+          id: goal.id,
+          name: goal.name,
+          description: goal.description || undefined,
+          definition: goal.definition || undefined,
+          indicatorCount: 0, // Will be computed if needed via separate query
+          sdgs: goal.goalSdgs.map(gs => ({
+            id: gs.sdg.id,
+            sdgNumber: gs.sdg.sdgNumber,
+            name: gs.sdg.name,
+            colorHex: gs.sdg.colorHex || undefined
+          })),
+          keyDimensions: goal.goalKeyDimensions.map(gkd => ({
+            id: gkd.keyDimension.id,
+            name: gkd.keyDimension.name,
+            description: gkd.keyDimension.description || undefined
+          }))
+        }));
+      },
+      config.CACHE_TTL_IRIS_DATA,
+      ['iris', 'strategic_goals']
+    );
+  }
+
+  /**
+   * Get key indicators with filtering
+   */
+  async getKeyIndicators(options: {
+    category?: string;
+    theme?: string;
+    goal?: string;
+    complexityLevel?: string;
+    sector?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ indicators: IndicatorWithData[]; total: number; page: number; totalPages: number }> {
+    const { page = 1, limit = 20, ...filters } = options;
+    const offset = (page - 1) * limit;
+
+    const whereClause: any = {};
+    
+    if (filters.complexityLevel) {
+      whereClause.complexityLevel = filters.complexityLevel;
+    }
+
+    // For goal filtering, we need to use a complex query through the relationship chain
+    let goalFilter = '';
+    let queryParams: any[] = [];
+    let paramIndex = 1;
+
+    if (filters.goal) {
+      goalFilter = `
+        AND EXISTS (
+          SELECT 1 FROM iris_core_metric_set_indicators cmsi
+          JOIN iris_key_dimension_core_metric_sets kdcms ON kdcms.core_metric_set_id = cmsi.core_metric_set_id
+          JOIN iris_goal_key_dimensions gkd ON gkd.key_dimension_id = kdcms.key_dimension_id
+          WHERE cmsi.indicator_id = i.id AND gkd.goal_id = $${paramIndex}::uuid
+        )
+      `;
+      queryParams.push(filters.goal);
+      paramIndex++;
+    }
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT i.id) as total
+      FROM iris_key_indicators i
+      WHERE ($${paramIndex}::text IS NULL OR i.complexity_level = $${paramIndex}::text)
+      ${goalFilter}
+    `;
+    
+    const dataQuery = `
+      SELECT DISTINCT i.id, i.name, i.description, i.calculation_guidance, 
+             i.why_important, i.complexity_level, i.data_collection_frequency
+      FROM iris_key_indicators i
+      WHERE ($${paramIndex}::text IS NULL OR i.complexity_level = $${paramIndex}::text)
+      ${goalFilter}
+      ORDER BY i.name
+      LIMIT $${paramIndex + 1} OFFSET $${paramIndex + 2}
+    `;
+
+    queryParams.push(filters.complexityLevel || null, limit, offset);
+
+    const [totalResult, indicators] = await Promise.all([
+      prisma.$queryRawUnsafe<{total: bigint}[]>(countQuery, ...queryParams.slice(0, queryParams.length - 2)),
+      prisma.$queryRawUnsafe<any[]>(dataQuery, ...queryParams)
+    ]);
+
+    const total = Number(totalResult[0]?.total || 0);
+
+    // Get data requirements for each indicator
+    const enrichedIndicators = await Promise.all(
+      indicators.map(async (indicator) => {
+        const dataRequirements = await prisma.irisIndicatorDataRequirement.findMany({
+          where: { indicatorId: indicator.id },
+          include: {
+            dataRequirement: true
+          },
+          orderBy: {
+            calculationWeight: 'desc'
+          }
+        });
+
+        return {
+          id: indicator.id,
+          name: indicator.name,
+          description: indicator.description || undefined,
+          calculationGuidance: indicator.calculation_guidance || undefined,
+          whyImportant: indicator.why_important || undefined,
+          complexityLevel: indicator.complexity_level,
+          dataCollectionFrequency: indicator.data_collection_frequency || undefined,
+          dataRequirements: dataRequirements.map(idr => ({
+            id: idr.dataRequirement.id,
+            name: idr.dataRequirement.name,
+            description: idr.dataRequirement.description || undefined,
+            definition: idr.dataRequirement.definition || undefined,
+            calculation: idr.dataRequirement.calculation || undefined,
+            dataType: idr.dataRequirement.dataType || undefined,
+            unitOfMeasurement: idr.dataRequirement.unitOfMeasurement || undefined,
+            isRequired: idr.isRequired,
+            calculationWeight: parseFloat(idr.calculationWeight.toString())
+          }))
+        };
+      })
+    );
+
+    return {
+      indicators: enrichedIndicators,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  /**
+   * Get indicator by ID
+   */
+  async getIndicatorById(id: string): Promise<IndicatorWithData | null> {
+    const indicator = await prisma.irisKeyIndicator.findUnique({
+      where: { id },
+      include: {
+        indicatorDataRequirements: {
+          include: {
+            dataRequirement: true
+          },
+          orderBy: {
+            calculationWeight: 'desc'
+          }
+        }
+      }
+    });
+
+    if (!indicator) return null;
+
+    return {
+      id: indicator.id,
+      name: indicator.name,
+      description: indicator.description || undefined,
+      calculationGuidance: indicator.calculationGuidance || undefined,
+      whyImportant: indicator.whyImportant || undefined,
+      complexityLevel: indicator.complexityLevel,
+      dataCollectionFrequency: indicator.dataCollectionFrequency || undefined,
+      dataRequirements: indicator.indicatorDataRequirements.map(idr => ({
+        id: idr.dataRequirement.id,
+        name: idr.dataRequirement.name,
+        description: idr.dataRequirement.description || undefined,
+        definition: idr.dataRequirement.definition || undefined,
+        calculation: idr.dataRequirement.calculation || undefined,
+        dataType: idr.dataRequirement.dataType || undefined,
+        unitOfMeasurement: idr.dataRequirement.unitOfMeasurement || undefined,
+        isRequired: idr.isRequired,
+        calculationWeight: parseFloat(idr.calculationWeight.toString())
+      }))
+    };
+  }
+
+  /**
+   * Search for similar indicators
+   */
+  async searchSimilarIndicators(searchTerm: string, options: {
+    limit?: number;
+    complexityLevels?: string[];
+    sectors?: string[];
+  } = {}): Promise<IndicatorWithData[]> {
+    const { limit = 10, complexityLevels, sectors } = options;
+    
+    const whereClause: any = {
+      OR: [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { description: { contains: searchTerm, mode: 'insensitive' } }
+      ]
+    };
+
+    if (complexityLevels?.length) {
+      whereClause.complexityLevel = { in: complexityLevels };
+    }
+
+    const indicators = await prisma.irisKeyIndicator.findMany({
+      where: whereClause,
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: {
+        indicatorDataRequirements: {
+          include: {
+            dataRequirement: true
+          },
+          orderBy: {
+            calculationWeight: 'desc'
+          }
+        }
+      }
+    });
+
+    return indicators.map(ind => ({
+      id: ind.id,
+      name: ind.name,
+      description: ind.description || undefined,
+      calculationGuidance: ind.calculationGuidance || undefined,
+      whyImportant: ind.whyImportant || undefined,
+      complexityLevel: ind.complexityLevel,
+      dataCollectionFrequency: ind.dataCollectionFrequency || undefined,
+      dataRequirements: ind.indicatorDataRequirements.map(idr => ({
+        id: idr.dataRequirement.id,
+        name: idr.dataRequirement.name,
+        description: idr.dataRequirement.description || undefined,
+        definition: idr.dataRequirement.definition || undefined,
+        calculation: idr.dataRequirement.calculation || undefined,
+        dataType: idr.dataRequirement.dataType || undefined,
+        unitOfMeasurement: idr.dataRequirement.unitOfMeasurement || undefined,
+        isRequired: idr.isRequired,
+        calculationWeight: parseFloat(idr.calculationWeight.toString())
+      }))
+    }));
+  }
+
+  /**
+   * Get contextual recommendations
+   */
+  async getContextualRecommendations(context: {
+    organizationType?: string;
+    sector?: string;
+    stage?: string;
+    existingMeasurements?: string[];
+  }): Promise<{
+    recommended: IndicatorWithData[];
+    reasoning: string;
+    confidence: number;
+  }> {
+    // Use existing recommendation logic
+    const recommendations = await this.getRecommendationsForOrganization({
+      industry: context.sector || 'general',
+      impactAreas: context.sector ? [context.sector] : [],
+      organizationSize: context.organizationType || 'medium',
+      existingGoals: context.existingMeasurements || []
+    });
+
+    // Get indicators for recommended goals
+    const allIndicators: IndicatorWithData[] = [];
+    for (const goal of recommendations.recommendedGoals.slice(0, 3)) {
+      const indicators = await this.getIndicatorsByGoal(goal.id);
+      allIndicators.push(...indicators.slice(0, 5)); // Limit to 5 indicators per goal
+    }
+
+    return {
+      recommended: allIndicators.slice(0, 10), // Limit to 10 total recommendations
+      reasoning: recommendations.reasoning,
+      confidence: recommendations.confidence
+    };
   }
 }
 

@@ -22,7 +22,7 @@ export function errorHandler(
       success: false,
       error: error.message,
       code: error.code,
-      ...(error.statusCode === 400 && error.details ? { details: error.details } : {})
+      ...(error.statusCode === 400 && error instanceof ValidationError && error.field ? { field: error.field, value: error.value } : {})
     });
     return;
   }
@@ -171,8 +171,8 @@ export function errorHandler(
     name: error.name,
     url: req.url,
     method: req.method,
-    userId: req.user?.id,
-    organizationId: req.organization?.id
+    userId: 'user' in req && req.user ? (req.user as any).id : undefined,
+    organizationId: 'user' in req && req.user ? (req.user as any).organizationId : undefined
   });
 
   res.status(500).json({
@@ -198,11 +198,10 @@ export function notFoundHandler(req: Request, res: Response): void {
 }
 
 // Async error wrapper utility
-export function asyncHandler<T extends any[]>(
-  fn: (...args: T) => Promise<any>
+export function asyncHandler(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
 ) {
-  return (...args: T): Promise<any> => {
-    const [req, res, next] = args as [Request, Response, NextFunction];
-    return Promise.resolve(fn(...args)).catch(next);
+  return (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    return Promise.resolve(fn(req, res, next)).catch(next);
   };
 }

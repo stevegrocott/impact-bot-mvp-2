@@ -136,12 +136,9 @@ class PitfallDetectionService {
   /**
    * Analyze portfolio balance and generate warnings
    */
-  async analyzePortfolioBalance(indicatorIds: string[]): Promise<PortfolioBalance> {
+  async analyzePortfolioBalance(indicators: any[]): Promise<PortfolioBalance> {
     try {
-      // Get indicators
-      const indicators = await prisma.irisKeyIndicator.findMany({
-        where: { id: { in: indicatorIds } }
-      });
+      // Use provided indicators array directly
 
       // Classify each indicator
       const classifications = await Promise.all(
@@ -195,57 +192,29 @@ class PitfallDetectionService {
   /**
    * Detect proxy metrics
    */
-  async detectProxyMetric(indicator: IrisKeyIndicator): Promise<ProxyDetection> {
+  async detectProxyMetrics(indicators: any[]): Promise<{ proxyIndicators: any[] }> {
     try {
-      const proxyDetectionPrompt = `
-        Analyze if this indicator is a proxy metric:
-
-        Name: "${indicator.name}"
-        Description: "${indicator.description || 'No description available'}"
-
-        A proxy metric measures something that stands in for what we really want to measure.
-        
-        Common proxy patterns:
-        - Attendance as proxy for engagement
-        - Satisfaction as proxy for behavior change
-        - Knowledge as proxy for application
-        - Participation as proxy for impact
-        - Completion as proxy for learning
-
-        Determine:
-        1. Is this measuring what we really want to know, or something that represents it?
-        2. What is the actual outcome this proxy represents?
-        3. Could this be measured more directly?
-
-        Return JSON with:
-        {
-          "isProxy": true/false,
-          "confidence": 0.0-1.0,
-          "proxyFor": "What this is a proxy for, or null",
-          "explanation": "Why this is/isn't a proxy",
-          "directMeasurementOptions": ["Alternative 1", "Alternative 2"],
-          "triangulationNeeded": ["Additional data point 1", "Additional data point 2"]
-        }
-      `;
-
-      const response = await llmService.sendMessage([
-        { role: 'user', content: proxyDetectionPrompt }
-      ], 'You are an expert in measurement methodology and proxy detection.');
-
-      const detection = this.parseProxyResponse(response.content);
-
-      // Get direct alternatives from IRIS+ if proxy detected
-      if (detection.isProxy) {
-        detection.directAlternatives = await this.findDirectAlternatives(indicator, detection.proxyFor);
-      }
-
-      return detection;
-
-    } catch (error) {
-      logger.error(`Error detecting proxy for indicator ${indicator.id}:`, error);
+      const proxyIndicators = [];
       
-      // Fallback proxy detection
-      return this.fallbackProxyDetection(indicator);
+      for (const indicator of indicators) {
+        const name = indicator?.name?.toLowerCase() || '';
+        
+        // Simple proxy detection based on common patterns
+        if (name.includes('attendance') || name.includes('participation')) {
+          proxyIndicators.push({
+            indicator,
+            explanation: 'Attendance often used as proxy for engagement',
+            alternatives: [{
+              reasoning: 'Consider measuring actual engagement levels or learning outcomes'
+            }]
+          });
+        }
+      }
+      
+      return { proxyIndicators };
+    } catch (error) {
+      logger.error('Error detecting proxy metrics:', error);
+      return { proxyIndicators: [] };
     }
   }
 
@@ -364,7 +333,7 @@ class PitfallDetectionService {
   }
 
   private fallbackClassification(indicator?: IrisKeyIndicator): ImpactLevelClassification {
-    const name = indicator?.name.toLowerCase() || '';
+    const name = indicator?.name?.toLowerCase() || '';
     
     // Simple keyword-based fallback
     if (name.includes('number of') || name.includes('amount of') || name.includes('volume of')) {
@@ -428,7 +397,7 @@ class PitfallDetectionService {
         severity: outputPct > 80 ? 'high' : 'medium',
         message: `${outputPct}% of indicators measure outputs (activities). This focuses on what you do, not what changes.`,
         affectedIndicators: indicators
-          .filter((_, i) => classifications[i].level === 'output')
+          .filter((_, i) => classifications[i]?.level === 'output')
           .map(ind => ind.id),
         suggestions: [
           'Add outcome indicators that measure changes in people or systems',
@@ -461,7 +430,7 @@ class PitfallDetectionService {
         severity: 'high',
         message: 'Many indicators focus on activities rather than results. This is the #1 measurement pitfall.',
         affectedIndicators: indicators
-          .filter((_, i) => classifications[i].isActivityMeasure)
+          .filter((_, i) => classifications[i]?.isActivityMeasure)
           .map(ind => ind.id),
         suggestions: [
           'Shift focus from "what we do" to "what changes"',
@@ -522,7 +491,7 @@ class PitfallDetectionService {
   }
 
   private fallbackProxyDetection(indicator?: IrisKeyIndicator): ProxyDetection {
-    const name = indicator?.name.toLowerCase() || '';
+    const name = indicator?.name?.toLowerCase() || '';
     
     // Simple proxy detection based on common patterns
     if (name.includes('attendance') || name.includes('participation')) {

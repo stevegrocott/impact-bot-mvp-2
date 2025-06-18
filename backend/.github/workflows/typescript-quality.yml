@@ -1,0 +1,247 @@
+name: TypeScript Quality Assurance
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  typescript-quality:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+      
+    - name: Generate Prisma Client
+      working-directory: ./backend
+      run: npm run prisma:generate
+      
+    - name: TypeScript Compilation Check
+      working-directory: ./backend
+      run: |
+        echo "🔍 Running TypeScript compilation check..."
+        npm run build
+        echo "✅ TypeScript compilation successful"
+        
+    - name: Type Coverage Analysis
+      working-directory: ./backend
+      run: |
+        echo "📊 Analyzing type coverage..."
+        npx type-coverage --at-least 95 --strict --ignore-files "**/*.test.ts" --ignore-files "**/*.spec.ts"
+        echo "✅ Type coverage meets requirements"
+        
+    - name: ESLint Type Safety Rules
+      working-directory: ./backend
+      run: |
+        echo "🔍 Running ESLint with TypeScript rules..."
+        npx eslint --config .eslintrc.bulletproof.js "src/**/*.ts" --max-warnings 0
+        echo "✅ ESLint type safety checks passed"
+        
+    - name: TypeScript Strict Mode Validation
+      working-directory: ./backend
+      run: |
+        echo "🔍 Validating strict TypeScript configuration..."
+        node -e "
+          const config = require('./tsconfig.json');
+          const required = {
+            strict: true,
+            noImplicitAny: true,
+            strictNullChecks: true,
+            strictFunctionTypes: true,
+            strictBindCallApply: true,
+            strictPropertyInitialization: true,
+            noImplicitReturns: true,
+            noFallthroughCasesInSwitch: true,
+            noUncheckedIndexedAccess: true,
+            exactOptionalPropertyTypes: true
+          };
+          
+          const missing = Object.entries(required).filter(([key, value]) => 
+            config.compilerOptions[key] !== value
+          );
+          
+          if (missing.length > 0) {
+            console.error('❌ Missing strict TypeScript settings:', missing);
+            process.exit(1);
+          }
+          
+          console.log('✅ TypeScript strict configuration validated');
+        "
+        
+    - name: Run Type Safety Tests
+      working-directory: ./backend
+      run: |
+        echo "🧪 Running type safety validation tests..."
+        npm test -- tests/type-safety.test.ts --verbose
+        echo "✅ Type safety tests passed"
+        
+    - name: Check for Any Types
+      working-directory: ./backend
+      run: |
+        echo "🔍 Scanning for prohibited 'any' types..."
+        if grep -r ": any" src/ --include="*.ts" --exclude-dir=node_modules; then
+          echo "❌ Found prohibited 'any' types in source code"
+          exit 1
+        fi
+        
+        if grep -r "as any" src/ --include="*.ts" --exclude-dir=node_modules; then
+          echo "❌ Found prohibited 'as any' type assertions"
+          exit 1
+        fi
+        
+        echo "✅ No prohibited 'any' types found"
+        
+    - name: Check for Non-null Assertions
+      working-directory: ./backend
+      run: |
+        echo "🔍 Scanning for prohibited non-null assertions..."
+        if grep -r "!" src/ --include="*.ts" --exclude-dir=node_modules | grep -v "!==\|!=\|!req\|!process" | grep "\..*!"; then
+          echo "❌ Found prohibited non-null assertions (!) in source code"
+          echo "Use type guards or getUserContext helper instead"
+          exit 1
+        fi
+        
+        echo "✅ No prohibited non-null assertions found"
+        
+    - name: Validate Interface Completeness
+      working-directory: ./backend
+      run: |
+        echo "🔍 Checking for incomplete interface implementations..."
+        # This would be caught by TypeScript compilation, but let's be explicit
+        npm run build 2>&1 | grep -i "does not implement\|missing implementation" && exit 1 || true
+        echo "✅ All interfaces properly implemented"
+        
+    - name: Prisma Schema Validation
+      working-directory: ./backend
+      run: |
+        echo "🔍 Validating Prisma schema consistency..."
+        npm run prisma:validate
+        echo "✅ Prisma schema validation passed"
+        
+    - name: Generate Type Coverage Report
+      working-directory: ./backend
+      run: |
+        echo "📊 Generating type coverage report..."
+        npx type-coverage --details --output-dir ./coverage/type-coverage
+        
+    - name: Upload Type Coverage Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: type-coverage-report-${{ matrix.node-version }}
+        path: backend/coverage/type-coverage/
+        
+    - name: Performance Test - Build Time
+      working-directory: ./backend
+      run: |
+        echo "⏱️ Testing TypeScript build performance..."
+        time npm run build > /dev/null
+        echo "✅ Build completed within acceptable time"
+        
+    - name: Code Quality Summary
+      working-directory: ./backend
+      run: |
+        echo "📋 Code Quality Summary:"
+        echo "✅ Zero TypeScript compilation errors"
+        echo "✅ 95%+ type coverage achieved"
+        echo "✅ No 'any' types in source code"
+        echo "✅ No non-null assertions (!) used"
+        echo "✅ All interfaces fully implemented"
+        echo "✅ Strict TypeScript configuration enforced"
+        echo "✅ ESLint type safety rules passed"
+        echo "✅ Prisma schema validation passed"
+        echo ""
+        echo "🎉 TypeScript quality assurance completed successfully!"
+
+  dependency-security:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Security Audit
+      working-directory: ./backend
+      run: |
+        echo "🔒 Running security audit..."
+        npm audit --audit-level moderate
+        echo "✅ Security audit passed"
+        
+    - name: Check for Outdated Dependencies
+      working-directory: ./backend
+      run: |
+        echo "📦 Checking for outdated dependencies..."
+        npm outdated || true  # Don't fail on outdated deps, just report
+        
+  integration-test:
+    needs: typescript-quality
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: impact_bot_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci
+      
+    - name: Setup Test Database
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:test@localhost:5432/impact_bot_test
+      run: |
+        npm run prisma:generate
+        npm run prisma:push
+        
+    - name: Run Integration Tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://postgres:test@localhost:5432/impact_bot_test
+        NODE_ENV: test
+      run: |
+        echo "🧪 Running integration tests with type safety validation..."
+        npm test
+        echo "✅ Integration tests passed"

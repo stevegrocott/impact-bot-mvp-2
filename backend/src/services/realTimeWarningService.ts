@@ -189,7 +189,7 @@ class RealTimeWarningService {
           metadata: {
             indicatorId: indicator.id,
             classification: classification,
-            suggestedOutcomes: classification.suggestedOutcomes || []
+            suggestedOutcomes: []
           }
         });
       }
@@ -205,7 +205,7 @@ class RealTimeWarningService {
           title: 'Proxy Metric Detected',
           message: `"${indicator.name}" may be a proxy for what you really want to measure`,
           explanation: proxyIndicator.explanation,
-          recommendations: proxyIndicator.alternatives.map(alt => alt.reasoning),
+          recommendations: proxyIndicator.alternatives.map((alt: any) => alt.reasoning),
           actionRequired: false,
           dismissible: true,
           metadata: {
@@ -232,7 +232,7 @@ class RealTimeWarningService {
 
     const portfolioAnalysis = await pitfallDetectionService.analyzePortfolioBalance(context.indicators);
     
-    if (portfolioAnalysis.imbalanceScore > 0.7) {
+    if (portfolioAnalysis.balanceScore < 30) {
       warnings.push({
         id: `portfolio-imbalance-${Date.now()}`,
         type: 'portfolio_imbalance',
@@ -250,7 +250,7 @@ class RealTimeWarningService {
         dismissible: true,
         metadata: {
           portfolioAnalysis,
-          suggestedOutcomes: portfolioAnalysis.suggestedOutcomes || []
+          balanceScore: portfolioAnalysis.balanceScore
         }
       });
     }
@@ -305,21 +305,14 @@ class RealTimeWarningService {
     action: 'shown' | 'dismissed' | 'acted_upon' | 'ignored'
   ): Promise<void> {
     try {
-      // Store warning event in database
+      // Store warning event in database  
       await prisma.pitfallWarningEvent.create({
         data: {
-          id: warningId,
           organizationId: context.organizationId,
           userId: context.userId,
-          sessionId: context.sessionId,
           warningType: this.extractWarningType(warningId),
-          shownAt: new Date(),
-          userAction: action,
-          contextData: {
-            currentStep: context.currentStep,
-            foundationLevel: context.foundationLevel,
-            indicatorCount: context.indicators?.length || 0
-          }
+          warningMessage: `Warning: ${this.extractWarningType(warningId)}`,
+          userAction: action
         }
       });
 
@@ -360,7 +353,7 @@ class RealTimeWarningService {
         by: ['warningType', 'userAction'],
         where: {
           organizationId,
-          shownAt: timeFilter
+          ...(timeFilter && { shownAt: timeFilter })
         },
         _count: true
       });
@@ -377,7 +370,9 @@ class RealTimeWarningService {
         if (!acc[stat.warningType]) {
           acc[stat.warningType] = { shown: 0, acted: 0, dismissed: 0 };
         }
-        acc[stat.warningType][stat.userAction] = stat._count;
+        if (stat.userAction && acc[stat.warningType][stat.userAction] !== undefined) {
+          acc[stat.warningType][stat.userAction] = stat._count;
+        }
         return acc;
       }, {} as Record<string, any>);
 

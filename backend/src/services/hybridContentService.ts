@@ -323,7 +323,7 @@ export class HybridContentService {
       const indicators = await prisma.irisKeyIndicator.findMany({
         where: complexityFilter ? {
           complexityLevel: complexityFilter
-        } : undefined,
+        } : {},
         include: {
           indicatorDataRequirements: {
             include: {
@@ -431,17 +431,19 @@ export class HybridContentService {
       }
 
       // Analyze existing measurements to suggest related goals/indicators
-      const usedGoalIds = [...new Set(
+      const usedGoalIds = Array.from(new Set(
         organization.userMeasurements
           .filter(m => m.strategicGoalId)
           .map(m => m.strategicGoalId)
-      )];
+          .filter((id): id is string => id !== null)
+      ));
 
-      const usedIndicatorIds = [...new Set(
+      const usedIndicatorIds = Array.from(new Set(
         organization.userMeasurements
           .filter(m => m.indicatorId)
           .map(m => m.indicatorId)
-      )];
+          .filter((id): id is string => id !== null)
+      ));
 
       // Get related goals through theme relationships
       const relatedGoals = usedGoalIds.length > 0 
@@ -471,8 +473,8 @@ export class HybridContentService {
       // Get suggested indicators based on complexity preference
       const suggestedIndicators = await prisma.irisKeyIndicator.findMany({
         where: {
-          id: { notIn: usedIndicatorIds },
-          complexityLevel: userContext.complexity || 'intermediate'
+          ...(usedIndicatorIds.length > 0 ? { id: { notIn: usedIndicatorIds } } : {}),
+          ...(userContext.complexity ? { complexityLevel: userContext.complexity } : {})
         },
         take: 5,
         orderBy: { sortOrder: 'asc' }
@@ -516,7 +518,7 @@ export class HybridContentService {
     contentChunks: ContentChunk[], 
     structuredContent: any
   ): string {
-    const chunkTypes = [...new Set(contentChunks.map(c => c.type))];
+    const chunkTypes = Array.from(new Set(contentChunks.map(c => c.type)));
     const avgRelevance = contentChunks.length > 0 
       ? contentChunks.reduce((sum, c) => sum + c.relevanceScore, 0) / contentChunks.length 
       : 0;

@@ -187,6 +187,9 @@ export class UserController {
       }
 
       // Verify current password
+      if (!user.passwordHash) {
+        throw new ValidationError('User has no password set - cannot change password');
+      }
       const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!isCurrentPasswordValid) {
         throw new ValidationError('Current password is incorrect');

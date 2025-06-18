@@ -7,6 +7,11 @@ import { Request, Response, NextFunction } from 'express';
 import { RateLimitError } from '@/utils/errors';
 import { cacheService } from '@/services/cache';
 import { logger } from '@/utils/logger';
+import { AuthenticatedUser } from '@/types';
+
+interface RequestWithOptionalUser extends Request {
+  user?: AuthenticatedUser;
+}
 
 interface RateLimitOptions {
   windowMs: number; // Time window in milliseconds
@@ -17,12 +22,6 @@ interface RateLimitOptions {
   message?: string;
 }
 
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    organizationId: string;
-  };
-}
 
 /**
  * Create rate limiting middleware
@@ -40,7 +39,7 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Generate rate limit key
-      const key = generateKey(req as AuthenticatedRequest, keyGenerator);
+      const key = generateKey(req as RequestWithOptionalUser, keyGenerator);
       const cacheKey = `rate_limit:${key}`;
 
       // Get current count
@@ -48,8 +47,8 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
 
       // Check if limit exceeded
       if (current >= max) {
-        const ttl = await cacheService.getTTL(cacheKey);
-        const retryAfter = Math.ceil(ttl || windowMs / 1000);
+        // Since getTTL is not available on cacheService, estimate retry time
+        const retryAfter = Math.ceil(windowMs / 1000);
 
         logger.warn('Rate limit exceeded', {
           key,
@@ -118,7 +117,7 @@ export function rateLimitMiddleware(options: RateLimitOptions) {
  * Generate rate limit key based on strategy
  */
 function generateKey(
-  req: AuthenticatedRequest, 
+  req: RequestWithOptionalUser, 
   keyGenerator: RateLimitOptions['keyGenerator']
 ): string {
   if (typeof keyGenerator === 'function') {
@@ -144,7 +143,7 @@ async function incrementCounter(cacheKey: string, windowMs: number): Promise<voi
     const current = await cacheService.get<number>(cacheKey) || 0;
     const ttl = windowMs / 1000; // Convert to seconds
     
-    await cacheService.set(cacheKey, current + 1, ttl, ['rate_limit']);
+    await cacheService.set(cacheKey, current + 1, ttl, { tags: ['rate_limit'] });
   } catch (error) {
     logger.error('Failed to increment rate limit counter', { cacheKey, error });
     throw error;

@@ -346,7 +346,7 @@ class TheoryOfChangeService {
           conversationId,
           partialTheory: updatedTheory
         },
-        foundationReadiness
+        ...(foundationReadiness && { foundationReadiness })
       };
 
     } catch (error) {
@@ -377,13 +377,13 @@ class TheoryOfChangeService {
 
       // Assess completeness of each element
       const elements = {
-        targetPopulation: theory.targetPopulation ? 20 : 0,
-        problemDefinition: theory.problemDefinition ? 15 : 0,
-        activities: theory.activities?.length > 0 ? 15 : 0,
-        outputs: theory.outputs?.length > 0 ? 10 : 0,
-        shortTermOutcomes: theory.shortTermOutcomes?.length > 0 ? 15 : 0,
-        longTermOutcomes: theory.longTermOutcomes?.length > 0 ? 15 : 0,
-        impacts: theory.impacts?.length > 0 ? 10 : 0
+        targetPopulation: (theory.targetPopulation?.length ?? 0) > 0 ? 20 : 0,
+        problemDefinition: (theory.problemDefinition?.length ?? 0) > 0 ? 15 : 0,
+        activities: (theory.activities?.length ?? 0) > 0 ? 15 : 0,
+        outputs: (theory.outputs?.length ?? 0) > 0 ? 10 : 0,
+        shortTermOutcomes: (theory.shortTermOutcomes?.length ?? 0) > 0 ? 15 : 0,
+        longTermOutcomes: (theory.longTermOutcomes?.length ?? 0) > 0 ? 15 : 0,
+        impacts: (theory.impacts?.length ?? 0) > 0 ? 10 : 0
       };
 
       const completenessScore = Object.values(elements).reduce((sum, score) => sum + score, 0);
@@ -448,8 +448,8 @@ class TheoryOfChangeService {
       if (!theory) return null;
 
       return {
-        targetPopulation: theory.targetPopulation || '',
-        problemDefinition: theory.problemDefinition || '',
+        targetPopulation: theory.targetPopulation ?? '',
+        problemDefinition: theory.problemDefinition ?? '',
         activities: Array.isArray(theory.activities) ? theory.activities as string[] : [],
         outputs: Array.isArray(theory.outputs) ? theory.outputs as string[] : [],
         shortTermOutcomes: Array.isArray(theory.shortTermOutcomes) ? theory.shortTermOutcomes as string[] : [],
@@ -457,9 +457,9 @@ class TheoryOfChangeService {
         impacts: Array.isArray(theory.impacts) ? theory.impacts as string[] : [],
         assumptions: Array.isArray(theory.assumptions) ? theory.assumptions as string[] : [],
         externalFactors: Array.isArray(theory.externalFactors) ? theory.externalFactors as string[] : [],
-        interventionType: theory.interventionType || '',
-        sector: theory.sector || '',
-        geographicScope: theory.geographicScope || ''
+        interventionType: theory.interventionType ?? '',
+        sector: theory.sector ?? '',
+        geographicScope: theory.geographicScope ?? ''
       };
     } catch (error) {
       logger.error('Error getting theory of change:', error);
@@ -483,18 +483,18 @@ class TheoryOfChangeService {
       });
 
       const theoryData = {
-        targetPopulation: theory.targetPopulation,
-        problemDefinition: theory.problemDefinition,
-        activities: theory.activities || [],
-        outputs: theory.outputs || [],
-        shortTermOutcomes: theory.shortTermOutcomes || [],
-        longTermOutcomes: theory.longTermOutcomes || [],
-        impacts: theory.impacts || [],
-        assumptions: theory.assumptions || [],
-        externalFactors: theory.externalFactors || [],
-        interventionType: theory.interventionType,
-        sector: theory.sector,
-        geographicScope: theory.geographicScope,
+        targetPopulation: theory.targetPopulation ?? null,
+        problemDefinition: theory.problemDefinition ?? null,
+        activities: theory.activities ?? [],
+        outputs: theory.outputs ?? [],
+        shortTermOutcomes: theory.shortTermOutcomes ?? [],
+        longTermOutcomes: theory.longTermOutcomes ?? [],
+        impacts: theory.impacts ?? [],
+        assumptions: theory.assumptions ?? [],
+        externalFactors: theory.externalFactors ?? [],
+        interventionType: theory.interventionType ?? null,
+        sector: theory.sector ?? null,
+        geographicScope: theory.geographicScope ?? null,
         status
       };
 
@@ -563,13 +563,13 @@ class TheoryOfChangeService {
   } {
     // Assess completeness of each element (weights based on importance)
     const elements = {
-      targetPopulation: theory.targetPopulation ? 20 : 0,
-      problemDefinition: theory.problemDefinition ? 15 : 0,
-      activities: (theory.activities?.length || 0) > 0 ? 15 : 0,
-      outputs: (theory.outputs?.length || 0) > 0 ? 10 : 0,
-      shortTermOutcomes: (theory.shortTermOutcomes?.length || 0) > 0 ? 15 : 0,
-      longTermOutcomes: (theory.longTermOutcomes?.length || 0) > 0 ? 15 : 0,
-      impacts: (theory.impacts?.length || 0) > 0 ? 10 : 0
+      targetPopulation: (theory.targetPopulation?.length ?? 0) > 0 ? 20 : 0,
+      problemDefinition: (theory.problemDefinition?.length ?? 0) > 0 ? 15 : 0,
+      activities: (theory.activities?.length ?? 0) > 0 ? 15 : 0,
+      outputs: (theory.outputs?.length ?? 0) > 0 ? 10 : 0,
+      shortTermOutcomes: (theory.shortTermOutcomes?.length ?? 0) > 0 ? 15 : 0,
+      longTermOutcomes: (theory.longTermOutcomes?.length ?? 0) > 0 ? 15 : 0,
+      impacts: (theory.impacts?.length ?? 0) > 0 ? 10 : 0
     };
 
     const completenessScore = Object.values(elements).reduce((sum, score) => sum + score, 0);
@@ -702,14 +702,14 @@ class TheoryOfChangeService {
     ];
     
     const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      return steps[currentIndex + 1];
+    if (currentIndex >= 0 && currentIndex < steps.length - 1) {
+      return steps[currentIndex + 1] ?? 'complete';
     }
     return 'complete';
   }
 
   private generateNextStepMessage(step: string, theory: Partial<TheoryOfChangeStructure>): string {
-    const messages = {
+    const messages: Record<string, string> = {
       '2_target_population': "Great! Now, **who specifically are you trying to help?** Can you describe your target population or beneficiaries?",
       '3_problem_definition': "Perfect! **What's the root problem you're addressing?** What's preventing your target population from achieving the change you described?",
       '4_activities': "Excellent! **What do you do to address this problem?** What are your main activities or interventions? (List each on a new line)",
@@ -746,7 +746,7 @@ Ready to start measuring your impact effectively!`;
   }
 
   private calculateProgress(step: string): number {
-    const stepNumbers = {
+    const stepNumbers: Record<string, number> = {
       '1_impact_vision': 11,
       '2_target_population': 22,
       '3_problem_definition': 33,
@@ -763,7 +763,7 @@ Ready to start measuring your impact effectively!`;
   }
 
   private getStepNumber(step: string): number {
-    const stepNumbers = {
+    const stepNumbers: Record<string, number> = {
       '1_impact_vision': 1,
       '2_target_population': 2,
       '3_problem_definition': 3,
@@ -807,16 +807,16 @@ Ready to start measuring your impact effectively!`;
 
   private calculateCompleteness(theory: Partial<TheoryOfChangeStructure>): number {
     const elements = [
-      theory.targetPopulation,
-      theory.problemDefinition,
-      theory.activities?.length,
-      theory.outputs?.length,
-      theory.shortTermOutcomes?.length,
-      theory.longTermOutcomes?.length,
-      theory.impacts?.length
+      theory.targetPopulation ? 1 : 0,
+      theory.problemDefinition ? 1 : 0,
+      (theory.activities?.length ?? 0) > 0 ? 1 : 0,
+      (theory.outputs?.length ?? 0) > 0 ? 1 : 0,
+      (theory.shortTermOutcomes?.length ?? 0) > 0 ? 1 : 0,
+      (theory.longTermOutcomes?.length ?? 0) > 0 ? 1 : 0,
+      (theory.impacts?.length ?? 0) > 0 ? 1 : 0
     ];
     
-    const completed = elements.filter(e => e).length;
+    const completed = elements.filter(e => e === 1).length;
     return Math.round((completed / elements.length) * 100);
   }
 
