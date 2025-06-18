@@ -1,0 +1,68 @@
+# Production environment configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  database:
+    environment:
+      POSTGRES_DB: impactbot_v2_prod
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      # Production should NOT have seed data volumes
+    # Remove port mapping in production (internal access only)
+    ports: []
+    
+  cache:
+    volumes:
+      - redis_prod_data:/data
+    # Remove port mapping in production (internal access only)
+    ports: []
+
+  backend:
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@database:5432/impactbot_v2_prod
+    volumes:
+      - backend_uploads:/app/uploads  # Named volume for production
+      - backend_logs:/app/logs
+    # Remove development mounts
+    
+  frontend:
+    environment:
+      REACT_APP_API_URL: ${FRONTEND_API_URL:-https://api.yourdomain.com}
+
+  # Add backup service for production
+  backup:
+    image: alpine:latest
+    container_name: impactbot-v2-backup
+    environment:
+      - BACKUP_SCHEDULE=0 2 * * *  # Daily at 2 AM
+    volumes:
+      - postgres_prod_data:/data/postgres:ro
+      - redis_prod_data:/data/redis:ro
+      - backend_uploads:/data/uploads:ro
+      - ./backups:/backups
+    command: |
+      sh -c "
+        apk add --no-cache postgresql-client redis &&
+        echo '0 2 * * * /backup-script.sh' | crontab - &&
+        crond -f
+      "
+    depends_on:
+      - database
+      - cache
+    restart: unless-stopped
+
+volumes:
+  postgres_prod_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/docker/volumes/impactbot_prod_postgres/_data
+  redis_prod_data:
+    driver: local  
+  backend_uploads:
+    driver: local
+  backend_logs:
+    driver: local

@@ -1,0 +1,37 @@
+# Test environment configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.test.yml up
+
+services:
+  database:
+    environment:
+      POSTGRES_DB: impactbot_v2_test
+      POSTGRES_PASSWORD: test_password_2024
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      # Note: No seed data in test - tests should manage their own data
+    ports:
+      - "5435:5432"  # Different port for test
+
+  cache:
+    volumes:
+      - redis_test_data:/data
+    ports:
+      - "6381:6379"  # Different port for test
+
+  backend:
+    environment:
+      NODE_ENV: test
+      LOG_LEVEL: error  # Minimal logging in tests
+      DATABASE_URL: postgresql://postgres:test_password_2024@database:5432/impactbot_v2_test
+      REDIS_URL: redis://cache:6379
+    ports:
+      - "3004:3001"  # Different port for test
+    volumes:
+      - ./backend/test-uploads:/app/uploads  # Separate upload directory
+      - ./backend/test-logs:/app/logs
+
+volumes:
+  postgres_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
