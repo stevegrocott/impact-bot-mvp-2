@@ -11,6 +11,7 @@ import { theoryOfChangeService } from '@/services/theoryOfChangeService';
 import { prisma } from '@/config/database';
 import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
+import { getUserContext } from '@/utils/routeHelpers';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.use(requireAuth);
  */
 router.get('/status', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     // For now, return a default foundation status until database is properly set up
     logger.info('Getting foundation status for organization', { organizationId });
@@ -47,7 +48,7 @@ router.get('/status', async (req, res, next) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error getting foundation status:', { error: errorMessage, organizationId: req.user?.organizationId });
+    logger.error('Error getting foundation status:', { error: errorMessage });
     next(new AppError('Failed to get foundation status', 500, 'FOUNDATION_STATUS_ERROR'));
   }
 });
@@ -58,7 +59,7 @@ router.get('/status', async (req, res, next) => {
  */
 router.get('/readiness', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     // Return default readiness for development
     const readiness = {
@@ -87,7 +88,7 @@ router.get('/readiness', async (req, res, next) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error getting foundation readiness:', { error: errorMessage, organizationId: req.user?.organizationId });
+    logger.error('Error getting foundation readiness:', { error: errorMessage });
     next(new AppError('Failed to get foundation readiness', 500, 'FOUNDATION_READINESS_ERROR'));
   }
 });
@@ -98,7 +99,7 @@ router.get('/readiness', async (req, res, next) => {
  */
 router.post('/assess', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     logger.info('Triggering foundation assessment', { organizationId });
 
@@ -133,7 +134,7 @@ router.post('/assess', async (req, res, next) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error assessing foundation:', { error: errorMessage, organizationId: req.user?.organizationId });
+    logger.error('Error assessing foundation:', { error: errorMessage });
     next(new AppError('Failed to assess foundation', 500, 'FOUNDATION_ASSESS_ERROR'));
   }
 });

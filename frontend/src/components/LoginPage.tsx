@@ -3,8 +3,8 @@ import { useAuth } from '../shared/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('demo@impact-bot.com');
-  const [password, setPassword] = useState('demo123');
+  const [email, setEmail] = useState('admin@impact-bot.com');
+  const [password, setPassword] = useState('AdminTest123!');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -17,6 +17,20 @@ export const LoginPage: React.FC = () => {
       navigate('/foundation');
     }
   }, [isAuthenticated, navigate]);
+
+  const testUsers = [
+    { email: 'admin@impact-bot.com', password: 'AdminTest123!', role: 'Super Admin', org: 'Impact Bot Platform', description: 'Full system access' },
+    { email: 'orgadmin@demo.org', password: 'OrgAdmin123!', role: 'Org Admin', org: 'Demo Foundation', description: 'Organization management' },
+    { email: 'manager@demo.org', password: 'Manager123!', role: 'Impact Manager', org: 'Demo Foundation', description: 'Measurement & reporting' },
+    { email: 'analyst@demo.org', password: 'Analyst123!', role: 'Impact Analyst', org: 'Demo Foundation', description: 'Create & edit measurements' },
+    { email: 'viewer@demo.org', password: 'Viewer123!', role: 'Report Viewer', org: 'Demo Foundation', description: 'Read-only access' },
+    { email: 'evaluator@external.com', password: 'Evaluator123!', role: 'External Evaluator', org: 'Independent Evaluation', description: 'Limited external access' }
+  ];
+
+  const handleTestUserClick = (testUser: typeof testUsers[0]) => {
+    setEmail(testUser.email);
+    setPassword(testUser.password);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +53,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+      <div className="max-w-lg w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Impact Bot v2
@@ -97,11 +111,35 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <div className="mt-6 p-4 bg-blue-50 rounded-md">
-            <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Account</h3>
-            <p className="text-xs text-blue-700">
-              <strong>Email:</strong> demo@impact-bot.com<br />
-              <strong>Password:</strong> demo123
-            </p>
+            <h3 className="text-sm font-medium text-blue-800 mb-3">🧪 Development Test Users</h3>
+            <p className="text-xs text-blue-600 mb-3">Click any user below to auto-fill login form:</p>
+            
+            <div className="space-y-2">
+              {testUsers.map((user, index) => (
+                <div 
+                  key={index}
+                  onClick={() => handleTestUserClick(user)}
+                  className="cursor-pointer p-3 bg-white rounded border border-blue-200 hover:border-blue-300 hover:bg-blue-25 transition-colors"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-gray-900">{user.role}</p>
+                      <p className="text-xs text-gray-600">{user.org}</p>
+                      <p className="text-xs text-blue-700 mt-1">{user.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded">
+              <p className="text-xs text-amber-700">
+                💡 <strong>Current:</strong> {email} ({testUsers.find(u => u.email === email)?.role || 'Custom'})
+              </p>
+            </div>
           </div>
         </form>
       </div>

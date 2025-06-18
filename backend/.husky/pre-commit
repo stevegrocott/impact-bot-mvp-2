@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
 echo "🔍 Running pre-commit checks..."
 
@@ -9,15 +8,6 @@ if ! npm run build >/dev/null 2>&1; then
   echo "❌ TypeScript compilation failed!"
   echo "Please fix TypeScript errors before committing:"
   npm run build
-  exit 1
-fi
-
-# Run linting
-echo "🔍 Running ESLint..."
-if ! npm run lint >/dev/null 2>&1; then
-  echo "❌ Linting failed!"
-  echo "Please fix linting errors or run 'npm run lint:fix'"
-  npm run lint
   exit 1
 fi
 

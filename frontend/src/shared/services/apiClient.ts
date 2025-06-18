@@ -325,8 +325,8 @@ class ApiClient {
 
   async assessFoundationReadiness(): Promise<ApiResponse<any>> {
     return this.request({
-      method: 'POST',
-      url: '/foundation/assess-readiness',
+      method: 'GET',
+      url: '/foundation/readiness',
     });
   }
 

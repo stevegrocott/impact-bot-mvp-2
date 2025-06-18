@@ -3,6 +3,10 @@
  * Optimized for scale, performance, and LLM training
  */
 
+// Initialize module aliases for compiled JavaScript
+// This is needed when running the compiled dist/ files
+import 'module-alias/register';
+
 import 'reflect-metadata';
 import 'express-async-errors';
 import express from 'express';

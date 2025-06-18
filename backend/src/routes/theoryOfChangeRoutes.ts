@@ -9,6 +9,7 @@ import { validateRequestBody } from '@/middleware/validateRequestBody';
 import { theoryOfChangeService } from '@/services/theoryOfChangeService';
 import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
+import { getUserContext } from '@/utils/routeHelpers';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.use(requireAuth);
  */
 router.get('/pathway-assessment', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
     const { hasDocuments, hasPartialTheory } = req.query;
 
     const assessment = await theoryOfChangeService.assessPathway(
@@ -45,7 +46,7 @@ router.get('/pathway-assessment', async (req, res, next) => {
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     const theory = await theoryOfChangeService.getTheoryOfChange(organizationId);
 
@@ -84,7 +85,7 @@ router.post('/upload-documents',
   }),
   async (req, res, next) => {
     try {
-      const { organizationId } = req.user!;
+      const { organizationId } = getUserContext(req);
       const { documents } = req.body;
 
       logger.info(`Processing document upload for organization ${organizationId}`, {
@@ -133,7 +134,7 @@ router.post('/guided-conversation/start',
   }),
   async (req, res, next) => {
     try {
-      const { organizationId, id: userId } = req.user!;
+      const { organizationId, userId } = getUserContext(req);
       const { partialTheory } = req.body;
 
       const conversationState = await theoryOfChangeService.startGuidedConversation(
@@ -194,7 +195,7 @@ router.post('/guided-conversation/continue',
  */
 router.get('/foundation-readiness', async (req, res, next) => {
   try {
-    const { organizationId } = req.user!;
+    const { organizationId } = getUserContext(req);
 
     const readiness = await theoryOfChangeService.assessFoundationReadiness(organizationId);
 
@@ -232,7 +233,7 @@ router.put('/update',
   }),
   async (req, res, next) => {
     try {
-      const { organizationId, id: userId } = req.user!;
+      const { organizationId, userId } = getUserContext(req);
       const theoryUpdate = req.body;
 
       // Store updated theory

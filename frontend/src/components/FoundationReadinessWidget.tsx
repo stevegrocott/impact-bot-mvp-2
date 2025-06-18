@@ -15,6 +15,7 @@ import {
   Info,
   Zap
 } from 'lucide-react';
+import { apiClient } from '../shared/services/apiClient';
 
 interface FoundationReadinessScore {
   overall: number; // 0-100
@@ -57,21 +58,90 @@ const FoundationReadinessWidget: React.FC<FoundationReadinessWidgetProps> = ({
   const loadFoundationReadiness = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/v1/foundation/status', {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiClient.getFoundationStatus();
       
-      if (response.ok) {
-        const data = await response.json();
-        setReadiness(data.data);
-      } else {
-        console.error('Failed to load foundation readiness');
-      }
+      // Transform backend response to expected frontend structure
+      const backendData = response.data;
+      const transformedData: FoundationReadinessScore = {
+        overall: calculateOverallScore(backendData),
+        categories: {
+          theoryOfChange: {
+            score: backendData.hasTheoryOfChange ? 100 : 0,
+            status: backendData.hasTheoryOfChange ? 'complete' : 'missing',
+            blockers: backendData.hasTheoryOfChange ? [] : ['Theory of change not created']
+          },
+          decisionMapping: {
+            score: backendData.hasDecisionMapping ? 100 : Math.min(backendData.decisionCount * 10, 50),
+            status: backendData.hasDecisionMapping ? 'complete' : backendData.decisionCount > 0 ? 'partial' : 'missing',
+            blockers: backendData.hasDecisionMapping ? [] : ['Decision mapping incomplete']
+          },
+          indicators: {
+            score: 0,
+            status: 'missing',
+            blockers: ['Indicators not yet selected']
+          },
+          stakeholderAlignment: {
+            score: 0,
+            status: 'missing',
+            blockers: ['Stakeholder alignment not established']
+          }
+        },
+        nextActions: generateNextActions(backendData),
+        confidence: 85,
+        readinessLevel: determineReadinessLevel(backendData)
+      };
+      
+      setReadiness(transformedData);
     } catch (error) {
       console.error('Error loading foundation readiness:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateOverallScore = (data: any): number => {
+    let score = 0;
+    if (data.hasTheoryOfChange) score += 30;
+    if (data.hasDecisionMapping) score += 25;
+    else if (data.decisionCount > 0) score += Math.min(data.decisionCount * 3, 15);
+    return Math.min(score, 100);
+  };
+
+  const determineReadinessLevel = (data: any): 'foundation' | 'intermediate' | 'advanced' => {
+    if (data.allowsAdvancedAccess) return 'advanced';
+    if (data.allowsIntermediateAccess) return 'intermediate';
+    return 'foundation';
+  };
+
+  const generateNextActions = (data: any) => {
+    const actions = [];
+    
+    if (!data.hasTheoryOfChange) {
+      actions.push({
+        action: 'Create your theory of change',
+        impact: 'high' as const,
+        timeEstimate: '30-45 minutes',
+        rationale: 'Essential foundation for all measurement activities'
+      });
+    }
+    
+    if (!data.hasDecisionMapping) {
+      actions.push({
+        action: 'Map key decisions',
+        impact: 'high' as const,
+        timeEstimate: '20-30 minutes',
+        rationale: 'Identify what decisions your data will inform'
+      });
+    }
+    
+    actions.push({
+      action: 'Select impact indicators',
+      impact: 'medium' as const,
+      timeEstimate: '45-60 minutes',
+      rationale: 'Choose relevant IRIS+ indicators for measurement'
+    });
+    
+    return actions;
   };
 
   const refreshReadiness = async () => {

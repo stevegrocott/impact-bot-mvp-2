@@ -16,7 +16,7 @@ datasource db {
 // ============================================================================
 
 model IrisImpactCategory {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   name        String   @db.VarChar(255)
   description String?  @db.Text
@@ -37,7 +37,7 @@ model IrisImpactCategory {
 }
 
 model IrisImpactTheme {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   name        String   @db.VarChar(255)
   description String?  @db.Text
@@ -60,7 +60,7 @@ model IrisImpactTheme {
 }
 
 model IrisStrategicGoal {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   name        String   @db.VarChar(500)
   description String?  @db.Text
@@ -85,7 +85,7 @@ model IrisStrategicGoal {
 }
 
 model IrisKeyIndicator {
-  id                      String   @id @default(uuid()) @db.Uuid
+  id                      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId              String   @unique @map("airtable_id") @db.VarChar(255)
   name                    String   @db.VarChar(500)
   description             String?  @db.Text
@@ -117,7 +117,7 @@ model IrisKeyIndicator {
 // ============================================================================
 
 model LlmContentChunk {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   
   // VECTOR SEARCH CAPABILITIES
   embedding         Unsupported("vector(1536)")?
@@ -149,7 +149,7 @@ model LlmContentChunk {
 }
 
 model VectorSimilarityCache {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   queryEmbedding     Unsupported("vector(1536)")? @map("query_embedding")
   similarContentIds  String[] @map("similar_content_ids")
   similarityScores   Decimal[] @map("similarity_scores")
@@ -161,7 +161,7 @@ model VectorSimilarityCache {
 }
 
 model ContextEffectiveness {
-  id                   String   @id @default(uuid()) @db.Uuid
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   contextPattern       String   @map("context_pattern") @db.Text
   queryType            String   @map("query_type") @db.VarChar(100)
   successRate          Decimal  @map("success_rate") @db.Decimal(5,4)
@@ -173,7 +173,7 @@ model ContextEffectiveness {
 }
 
 model LlmTrainingPair {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   conversationId    String?  @map("conversation_id") @db.Uuid
   userInput         String   @map("user_input") @db.Text
   assistantResponse String   @map("assistant_response") @db.Text
@@ -196,7 +196,7 @@ model LlmTrainingPair {
 // ============================================================================
 
 model Conversation {
-  id                   String   @id @default(uuid()) @db.Uuid
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId               String   @map("user_id") @db.Uuid
   organizationId       String   @map("organization_id") @db.Uuid
   title                String?  @db.VarChar(500)
@@ -220,7 +220,7 @@ model Conversation {
 }
 
 model ConversationMessage {
-  id               String   @id @default(uuid()) @db.Uuid
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   conversationId   String   @map("conversation_id") @db.Uuid
   messageType      String   @map("message_type") @db.VarChar(50)
   role             String   @default("assistant") @db.VarChar(20) // user, assistant, system
@@ -241,7 +241,7 @@ model ConversationMessage {
 }
 
 model ConversationRecommendation {
-  id                  String   @id @default(uuid()) @db.Uuid
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   conversationId      String   @map("conversation_id") @db.Uuid
   messageId           String?  @map("message_id") @db.Uuid
   recommendationType  String   @map("recommendation_type") @db.VarChar(100)
@@ -261,7 +261,7 @@ model ConversationRecommendation {
 }
 
 model QueryPattern {
-  id                    String   @id @default(uuid()) @db.Uuid
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   queryText             String   @map("query_text") @db.Text
   queryVector           Unsupported("vector(1536)")? @map("query_vector")
   intentClassification  String?  @map("intent_classification") @db.VarChar(100)
@@ -286,7 +286,7 @@ model QueryPattern {
 // ============================================================================
 
 model IntelligentContextCache {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   cacheKey          String   @unique @map("cache_key") @db.VarChar(255)
   contextData       Json     @map("context_data") @db.JsonB
   relevanceTags     String[] @map("relevance_tags")
@@ -301,7 +301,7 @@ model IntelligentContextCache {
 }
 
 model QueryOptimizationRecommendation {
-  id                     String    @id @default(uuid()) @db.Uuid
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   queryPatternId         String    @map("query_pattern_id") @db.Uuid
   optimizationType       String    @map("optimization_type") @db.VarChar(100)
   recommendation         String    @db.Text
@@ -322,7 +322,7 @@ model QueryOptimizationRecommendation {
 // ============================================================================
 
 model Organization {
-  id           String   @id @default(uuid()) @db.Uuid
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name         String   @db.VarChar(255)
   description  String?  @db.Text
   industry     String?  @db.VarChar(100)
@@ -353,7 +353,7 @@ model Organization {
 }
 
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   email        String    @unique @db.VarChar(255)
   passwordHash String?   @map("password_hash") @db.VarChar(255)
   firstName    String?   @map("first_name") @db.VarChar(100)
@@ -397,7 +397,7 @@ model User {
 }
 
 model Role {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String   @unique @db.VarChar(100)
   description String?  @db.Text
   permissions Json     @default("[]") @db.JsonB
@@ -411,7 +411,7 @@ model Role {
 }
 
 model UserOrganization {
-  id             String   @id @default(uuid()) @db.Uuid
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId         String   @map("user_id") @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   roleId         String   @map("role_id") @db.Uuid
@@ -435,7 +435,7 @@ model UserOrganization {
 // These would follow the same pattern with vector embedding support where appropriate
 
 model UserCustomIndicator {
-  id                     String    @id @default(uuid()) @db.Uuid
+  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId         String    @map("organization_id") @db.Uuid
   createdBy              String    @map("created_by") @db.Uuid
   name                   String    @db.VarChar(500)
@@ -461,7 +461,7 @@ model UserCustomIndicator {
 }
 
 model UserMeasurement {
-  id                      String    @id @default(uuid()) @db.Uuid
+  id                      String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId          String    @map("organization_id") @db.Uuid
   userId                  String    @map("user_id") @db.Uuid
   strategicGoalId         String?   @map("strategic_goal_id") @db.Uuid
@@ -493,7 +493,7 @@ model UserMeasurement {
 }
 
 model UserReport {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId String @map("organization_id") @db.Uuid
   createdBy   String    @map("created_by") @db.Uuid
   title       String    @db.VarChar(500)
@@ -521,7 +521,7 @@ model UserReport {
 // ============================================================================
 
 model AuditLog {
-  id             String    @id @default(uuid()) @db.Uuid
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId         String?   @map("user_id") @db.Uuid
   organizationId String?   @map("organization_id") @db.Uuid
   action         String    @db.VarChar(255)
@@ -541,7 +541,7 @@ model AuditLog {
 }
 
 model DataSyncStatus {
-  id               String    @id @default(uuid()) @db.Uuid
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   syncType         String    @map("sync_type") @db.VarChar(100)
   status           String    @db.VarChar(50)
   recordsProcessed Int       @default(0) @map("records_processed")
@@ -557,7 +557,7 @@ model DataSyncStatus {
 
 // Simplified junction tables for many-to-many relationships
 model IrisThemeGoal {
-  id                   String   @id @default(uuid()) @db.Uuid
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   themeId              String   @map("theme_id") @db.Uuid
   goalId               String   @map("goal_id") @db.Uuid
   relationshipStrength Int      @default(1) @map("relationship_strength")
@@ -571,7 +571,7 @@ model IrisThemeGoal {
 }
 
 model IrisGoalSdg {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   goalId            String   @map("goal_id") @db.Uuid
   sdgId             String   @map("sdg_id") @db.Uuid
   alignmentStrength Int      @default(1) @map("alignment_strength")
@@ -585,7 +585,7 @@ model IrisGoalSdg {
 }
 
 model IrisGoalKeyDimension {
-  id             String   @id @default(uuid()) @db.Uuid
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   goalId         String   @map("goal_id") @db.Uuid
   keyDimensionId String   @map("key_dimension_id") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -598,7 +598,7 @@ model IrisGoalKeyDimension {
 }
 
 model IrisKeyDimension {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   name        String   @db.VarChar(255)
   description String?  @db.Text
@@ -620,7 +620,7 @@ model IrisKeyDimension {
 }
 
 model IrisCoreMetricSet {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   name        String   @db.VarChar(255)
   description String?  @db.Text
@@ -636,7 +636,7 @@ model IrisCoreMetricSet {
 }
 
 model IrisKeyDimensionCoreMetricSet {
-  id               String   @id @default(uuid()) @db.Uuid
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   keyDimensionId   String   @map("key_dimension_id") @db.Uuid
   coreMetricSetId  String   @map("core_metric_set_id") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -649,7 +649,7 @@ model IrisKeyDimensionCoreMetricSet {
 }
 
 model IrisCoreMetricSetIndicator {
-  id              String   @id @default(uuid()) @db.Uuid
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   coreMetricSetId String   @map("core_metric_set_id") @db.Uuid
   indicatorId     String   @map("indicator_id") @db.Uuid
   priorityLevel   Int      @default(1) @map("priority_level")
@@ -663,7 +663,7 @@ model IrisCoreMetricSetIndicator {
 }
 
 model IrisIndicatorDataRequirement {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   indicatorId        String   @map("indicator_id") @db.Uuid
   dataRequirementId  String   @map("data_requirement_id") @db.Uuid
   isRequired         Boolean  @default(true) @map("is_required")
@@ -678,7 +678,7 @@ model IrisIndicatorDataRequirement {
 }
 
 model IrisDataRequirement {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId         String   @unique @map("airtable_id") @db.VarChar(255)
   irisCode           String?  @map("iris_code") @db.VarChar(100)
   name               String   @db.VarChar(255)
@@ -698,7 +698,7 @@ model IrisDataRequirement {
 }
 
 model SustainableDevelopmentGoal {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   sdgNumber   Int      @unique @map("sdg_number")
   name        String   @db.VarChar(255)
@@ -715,7 +715,7 @@ model SustainableDevelopmentGoal {
 }
 
 model SdgTarget {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId  String   @unique @map("airtable_id") @db.VarChar(255)
   targetCode  String   @map("target_code") @db.VarChar(20)
   name        String   @db.VarChar(500)
@@ -732,7 +732,7 @@ model SdgTarget {
 }
 
 model SdgIndicator {
-  id            String   @id @default(uuid()) @db.Uuid
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   airtableId    String   @unique @map("airtable_id") @db.VarChar(255)
   indicatorCode String   @map("indicator_code") @db.VarChar(50)
   name          String   @db.VarChar(500)
@@ -752,7 +752,7 @@ model SdgIndicator {
 // ============================================================================
 
 model OrganizationTheoryOfChange {
-  id                  String    @id @default(uuid()) @db.Uuid
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId      String    @unique @map("organization_id") @db.Uuid
   targetPopulation    String?   @map("target_population") @db.Text
   problemDefinition   String?   @map("problem_definition") @db.Text
@@ -782,7 +782,7 @@ model OrganizationTheoryOfChange {
 }
 
 model FoundationReadiness {
-  id                    String    @id @default(uuid()) @db.Uuid
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   theoryOfChangeId      String    @unique @map("theory_of_change_id") @db.Uuid
   overallScore          Decimal   @default(0) @map("overall_score") @db.Decimal(5, 2) // 0-100 score
   stepScores            Json      @default("{}") @map("step_scores") @db.JsonB // Individual step completion scores
@@ -800,7 +800,7 @@ model FoundationReadiness {
 }
 
 model DecisionMapping {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   theoryOfChangeId  String   @map("theory_of_change_id") @db.Uuid
   decisionType      String   @map("decision_type") @db.VarChar(50) // strategic, operational, tactical
   description       String   @db.Text
@@ -818,7 +818,7 @@ model DecisionMapping {
 }
 
 model DecisionQuestion {
-  id                  String    @id @default(uuid()) @db.Uuid
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId      String    @map("organization_id") @db.Uuid
   question            String    @db.Text
   decisionType        String    @map("decision_type") @db.VarChar(50) // strategic, operational, tactical, adaptive
@@ -843,7 +843,7 @@ model DecisionQuestion {
 }
 
 model DecisionEvolution {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   decisionQuestionId String   @map("decision_question_id") @db.Uuid
   changeType         String   @map("change_type") @db.VarChar(50) // question_refined, evidence_added, data_source_changed, decision_resolved
   previousState      Json     @map("previous_state") @db.JsonB
@@ -860,7 +860,7 @@ model DecisionEvolution {
 }
 
 model IndicatorUtility {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   decisionQuestionId String   @map("decision_question_id") @db.Uuid
   indicatorId        String   @map("indicator_id") @db.Uuid
   utilityScore       Decimal  @map("utility_score") @db.Decimal(3, 2) // 0.00-1.00
@@ -878,7 +878,7 @@ model IndicatorUtility {
 }
 
 model MinimumViableMeasurement {
-  id                 String   @id @default(uuid()) @db.Uuid
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId     String   @map("organization_id") @db.Uuid
   decisionQuestions  Json     @map("decision_questions") @db.JsonB // Array of decision question IDs
   requiredIndicators Json     @map("required_indicators") @db.JsonB // Core indicators needed
@@ -900,7 +900,7 @@ model MinimumViableMeasurement {
 }
 
 model UserBehaviorEvent {
-  id               String   @id @default(uuid()) @db.Uuid
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId   String   @map("organization_id") @db.Uuid
   userId           String   @map("user_id") @db.Uuid
   sessionId        String   @map("session_id") @db.VarChar(255)
@@ -923,7 +923,7 @@ model UserBehaviorEvent {
 }
 
 model BehaviorInsight {
-  id               String   @id @default(uuid()) @db.Uuid
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId   String?  @map("organization_id") @db.Uuid // null for cross-org insights
   insightType      String   @map("insight_type") @db.VarChar(50) // pathway_optimization, friction_point, success_pattern, pitfall_effectiveness
   title            String   @db.VarChar(255)
@@ -948,7 +948,7 @@ model BehaviorInsight {
 }
 
 model AnalyticsMetric {
-  id             String   @id @default(uuid()) @db.Uuid
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId String?  @map("organization_id") @db.Uuid // null for global metrics
   metricType     String   @map("metric_type") @db.VarChar(50) // completion_rate, time_to_value, user_satisfaction, etc.
   metricName     String   @map("metric_name") @db.VarChar(100)
@@ -968,7 +968,7 @@ model AnalyticsMetric {
 }
 
 model PitfallWarningEvent {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   organizationId    String   @map("organization_id") @db.Uuid
   userId            String   @map("user_id") @db.Uuid
   warningType       String   @map("warning_type") @db.VarChar(50) // activity_vs_impact, proxy_metric, over_engineering, etc.

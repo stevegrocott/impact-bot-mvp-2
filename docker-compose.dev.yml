@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: impact-bot-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: impact_bot_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./database/init-vector.sql:/docker-entrypoint-initdb.d/01_init-vector.sql
+      - ./database/seed-data/01_test_users.sql:/docker-entrypoint-initdb.d/02_test_users.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - impact-bot-dev
+
+  redis:
+    image: redis:7-alpine
+    container_name: impact-bot-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - impact-bot-dev
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: impact-bot-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@impact-bot.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'True'
+      PGADMIN_CONFIG_LOGIN_BANNER: '"Impact Bot Development Database"'
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - impact-bot-dev
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  impact-bot-dev:
+    driver: bridge
