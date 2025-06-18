@@ -1,0 +1,70 @@
+name: Pre-Deployment Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: impactbot_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          backend/package-lock.json
+          frontend/package-lock.json
+
+    - name: Install Backend Dependencies
+      run: cd backend && npm ci
+
+    - name: Install Frontend Dependencies  
+      run: cd frontend && npm ci
+
+    - name: Backend Syntax Check
+      run: cd backend && npm run build
+
+    - name: Frontend Syntax Check
+      run: cd frontend && npm run build
+
+    - name: Backend Unit Tests
+      run: cd backend && npm test
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/impactbot_test
+        REDIS_URL: redis://localhost:6379
+
+    - name: Integration Tests
+      run: |
+        cd backend && npm start &
+        sleep 10
+        npm run test:integration
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/impactbot_test
+        REDIS_URL: redis://localhost:6379
