@@ -57,8 +57,8 @@ export class DatabaseError extends AppError {
 
   constructor(message: string, operation?: string, table?: string) {
     super(message, 500, 'DATABASE_ERROR');
-    this.operation = operation;
-    this.table = table;
+    this.operation = operation || undefined;
+    this.table = table || undefined;
   }
 }
 
@@ -72,7 +72,7 @@ export class ExternalServiceError extends AppError {
   constructor(message: string, service: string, originalError?: Error) {
     super(message, 502, 'EXTERNAL_SERVICE_ERROR');
     this.service = service;
-    this.originalError = originalError;
+    this.originalError = originalError || undefined;
   }
 }
 
@@ -84,7 +84,7 @@ export class RateLimitError extends AppError {
 
   constructor(message: string = 'Rate limit exceeded', retryAfter?: number) {
     super(message, 429, 'RATE_LIMIT_EXCEEDED');
-    this.retryAfter = retryAfter;
+    this.retryAfter = retryAfter || undefined;
   }
 }
 
@@ -98,7 +98,7 @@ export class LLMError extends AppError {
   constructor(message: string, provider: string, tokensUsed?: number) {
     super(message, 503, 'LLM_SERVICE_ERROR');
     this.provider = provider;
-    this.tokensUsed = tokensUsed;
+    this.tokensUsed = tokensUsed || undefined;
   }
 }
 
@@ -266,7 +266,7 @@ export function errorHandler(
 
   // Include stack trace in development
   if (config.IS_DEVELOPMENT && !appError.isOperational) {
-    errorResponse.stack = appError.stack;
+    errorResponse.stack = appError.stack || undefined;
   }
 
   // Send error response

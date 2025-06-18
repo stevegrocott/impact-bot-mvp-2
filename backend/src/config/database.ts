@@ -25,37 +25,13 @@ const prismaConfig: any = {
 // Create Prisma client instance
 export const prisma = new PrismaClient(prismaConfig);
 
-// Query logging and monitoring
+// Database connection monitoring
 if (config.NODE_ENV !== 'test') {
-  prisma.$on('query', (e) => {
-    if (e.duration > 1000) { // Log slow queries (>1s)
-      logger.warn('Slow database query detected', {
-        query: e.query,
-        params: e.params,
-        duration: e.duration,
-        target: e.target
-      });
-    } else if (config.LOG_LEVEL === 'debug') {
-      logger.debug('Database query executed', {
-        query: e.query.substring(0, 100) + (e.query.length > 100 ? '...' : ''),
-        duration: e.duration,
-        target: e.target
-      });
-    }
-  });
-
-  prisma.$on('error', (e) => {
-    logger.error('Database error occurred', {
-      message: e.message,
-      target: e.target
-    });
-  });
-
-  prisma.$on('warn', (e) => {
-    logger.warn('Database warning', {
-      message: e.message,
-      target: e.target
-    });
+  // Simple connection test on startup
+  prisma.$connect().then(() => {
+    logger.info('Database connected successfully');
+  }).catch((error) => {
+    logger.error('Database connection failed', { error: error.message });
   });
 }
 

@@ -48,11 +48,16 @@ jobs:
     - name: Install Frontend Dependencies  
       run: cd frontend && npm ci
 
-    - name: Backend Syntax Check
+    - name: MANDATORY Backend TypeScript Build
       run: cd backend && npm run build
 
-    - name: Frontend Syntax Check
+    - name: MANDATORY Frontend TypeScript Build  
       run: cd frontend && npm run build
+
+    - name: Environment-Specific Validation
+      run: |
+        chmod +x scripts/validate-deployment-enhanced.sh
+        ./scripts/validate-deployment-enhanced.sh test
 
     - name: Backend Unit Tests
       run: cd backend && npm test

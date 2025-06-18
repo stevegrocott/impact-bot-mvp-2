@@ -170,7 +170,7 @@ class VectorSearchService {
           id: goal.id,
           contentType: 'goal',
           name: goal.name,
-          description: goal.description,
+          description: goal.description || '',
           relevanceScore: 0.5, // Default relevance
           explanation: `Text match for "${queryText}"`,
           metadata: { searchMethod: 'fallback' }
@@ -193,7 +193,7 @@ class VectorSearchService {
           id: indicator.id,
           contentType: 'indicator',
           name: indicator.name,
-          description: indicator.description,
+          description: indicator.description || '',
           relevanceScore: 0.5,
           explanation: `Text match for "${queryText}"`,
           metadata: { searchMethod: 'fallback' }

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Git Pre-Commit Hook - MANDATORY VALIDATION
+# Prevents commits that would break the build
+# Integration Engineering Best Practice
+
+echo "🔒 Git Pre-Commit Hook: Running mandatory validation..."
+
+# Run the pre-commit validation script
+if ! ./scripts/pre-commit-validation.sh; then
+    echo ""
+    echo "❌ COMMIT REJECTED - Pre-commit validation failed"
+    echo "🔧 Fix the errors above before committing"
+    echo "💡 Run './scripts/pre-commit-validation.sh' to see detailed errors"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Pre-commit validation passed - commit allowed"
+exit 0
