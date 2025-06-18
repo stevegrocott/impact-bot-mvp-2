@@ -435,12 +435,3 @@ export async function optionalAuth(
   }
 }
 
-// Export middleware functions
-export {
-  authMiddleware as default,
-  requireOrganization,
-  requirePermission,
-  requireRole,
-  optionalAuth,
-  AuthService
-};

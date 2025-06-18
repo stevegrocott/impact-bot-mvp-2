@@ -4,16 +4,20 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { store } from './shared/store/store';
 import { useAuth } from './shared/hooks/useAuth';
 import AppLayout from './layouts/AppLayout';
-import Dashboard from './pages/Dashboard';
-import Chat from './pages/Chat';
+import SimpleChat from './pages/SimpleChat';
 import FoundationDashboard from './pages/FoundationDashboard';
 import IndicatorSelection from './pages/IndicatorSelection';
+import WelcomeScreen from './pages/WelcomeScreen';
+import QuickStartMode from './pages/QuickStartMode';
+import PersonalitySelection from './pages/PersonalitySelection';
+import VisualDashboard from './pages/VisualDashboard';
 import { TheoryOfChangeCapture } from './modules/onboarding/components/TheoryOfChangeCapture';
+import { LoginPage } from './components/LoginPage';
 import './App.css';
 
 // Auth wrapper component
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { checkAuth, isAuthenticated } = useAuth();
+  const { checkAuth } = useAuth();
 
   useEffect(() => {
     checkAuth();
@@ -46,7 +50,44 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/login" element={<div>Login Page (TODO)</div>} />
+      <Route path="/login" element={<LoginPage />} />
+      
+      {/* Welcome/Onboarding routes */}
+      <Route 
+        path="/welcome" 
+        element={
+          <ProtectedRoute>
+            <WelcomeScreen />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/quickstart" 
+        element={
+          <ProtectedRoute>
+            <QuickStartMode />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/onboarding/personality" 
+        element={
+          <ProtectedRoute>
+            <PersonalitySelection />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/visual" 
+        element={
+          <ProtectedRoute>
+            <VisualDashboard />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Protected routes */}
       <Route
@@ -54,7 +95,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <AppLayout>
-              <Dashboard />
+              <FoundationDashboard />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -65,7 +106,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <AppLayout>
-              <Chat />
+              <SimpleChat />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -76,7 +117,7 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <AppLayout>
-              <Chat />
+              <SimpleChat />
             </AppLayout>
           </ProtectedRoute>
         }
@@ -111,6 +152,17 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <AppLayout>
               <div>Foundation Readiness Dashboard (TODO)</div>
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/foundation/decisions"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <div>Decision Mapping (TODO)</div>
             </AppLayout>
           </ProtectedRoute>
         }

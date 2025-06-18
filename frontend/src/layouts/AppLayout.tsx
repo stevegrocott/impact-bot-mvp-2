@@ -3,7 +3,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   MessageSquare, 
-  BarChart3, 
   Target, 
   FileText, 
   CheckSquare, 
@@ -12,7 +11,8 @@ import {
   Menu,
   X,
   Bell,
-  User
+  User,
+  Home
 } from 'lucide-react';
 import { RootState } from '../shared/store/store';
 import { toggleSidebar, toggleChatPanel } from '../shared/store/uiSlice';
@@ -31,9 +31,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const notifications = useSelector((state: RootState) => state.ui.notifications);
 
   const navigationItems = [
-    { path: '/', icon: BarChart3, label: 'Dashboard' },
-    { path: '/chat', icon: MessageSquare, label: 'Chat' },
+    { path: '/', icon: Home, label: 'Foundation' },
     { path: '/indicators', icon: Target, label: 'Indicators' },
+    { path: '/chat', icon: MessageSquare, label: 'Chat' },
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/approvals', icon: CheckSquare, label: 'Approvals' },
     { path: '/collaboration', icon: Users, label: 'Collaboration' },
@@ -131,7 +131,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {navigationItems.find(item => isActivePath(item.path))?.label || 'Dashboard'}
+                  {navigationItems.find(item => isActivePath(item.path))?.label || 'Foundation'}
                 </h2>
                 {organization && (
                   <p className="text-sm text-gray-500">{organization.name}</p>

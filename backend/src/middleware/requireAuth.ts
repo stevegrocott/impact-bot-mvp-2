@@ -45,10 +45,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     // Get user details from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: { organization: true }
+      include: { 
+        userOrganizations: {
+          include: {
+            organization: true,
+            role: true
+          }
+        }
+      }
     });
 
-    if (!user || !user.organization) {
+    if (!user || !user.userOrganizations || user.userOrganizations.length === 0) {
       throw new AppError('User or organization not found', 401);
     }
 
@@ -57,12 +64,15 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       throw new AppError('User account is deactivated', 401);
     }
 
+    // Get primary organization or first organization
+    const primaryUserOrg = user.userOrganizations.find(uo => uo.isPrimary) || user.userOrganizations[0];
+
     // Attach user info to request
     req.user = {
       userId: user.id,
-      organizationId: user.organizationId,
+      organizationId: primaryUserOrg.organizationId,
       email: user.email,
-      role: user.role
+      role: primaryUserOrg.role.name
     };
 
     next();

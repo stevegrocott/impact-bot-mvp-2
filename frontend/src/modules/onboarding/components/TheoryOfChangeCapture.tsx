@@ -22,6 +22,11 @@ import {
   Layers
 } from 'lucide-react';
 
+// Component imports
+import { GuidedStepInput } from './GuidedStepInput';
+import { TheoryOfChangePreview } from './TheoryOfChangePreview';
+import { FoundationReadinessCard } from './FoundationReadinessCard';
+
 // Types
 interface TheoryOfChangeStructure {
   targetPopulation: string;

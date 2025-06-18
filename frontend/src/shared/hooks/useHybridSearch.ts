@@ -45,8 +45,8 @@ export const useHybridSearch = (options: UseHybridSearchOptions = {}) => {
     query: '',
   });
 
-  const debounceTimer = useRef<NodeJS.Timeout>();
-  const abortController = useRef<AbortController>();
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const abortController = useRef<AbortController | null>(null);
 
   // Generate cache key for search params
   const generateCacheKey = useCallback((params: HybridSearchParams): string => {

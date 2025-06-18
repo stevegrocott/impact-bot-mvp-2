@@ -634,4 +634,3 @@ export class IrisService {
 
 // Create and export singleton instance
 export const irisService = new IrisService();
-export { IrisService };

@@ -16,7 +16,7 @@ import adminRoutes from './admin';
 import { theoryOfChangeRoutes } from './theoryOfChangeRoutes';
 import { pitfallDetectionRoutes } from './pitfallDetectionRoutes';
 import { decisionMappingRoutes } from './decisionMappingRoutes';
-import { foundationRoutes } from './foundationRoutes';
+import foundationRoutes from './foundationRoutes';
 import { adminAnalyticsRoutes } from './adminAnalyticsRoutes';
 import { realTimeWarningRoutes } from './realTimeWarningRoutes';
 

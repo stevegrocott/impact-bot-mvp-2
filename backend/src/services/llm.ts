@@ -3,7 +3,7 @@
  * Anthropic Claude integration with conversation management and caching
  */
 
-import Anthropic from 'anthropic';
+import Anthropic from '@anthropic-ai/sdk';
 import { config } from '@/config/environment';
 import { cacheService } from './cache';
 import { logger, LLMLogger, PerformanceLogger } from '@/utils/logger';
@@ -472,4 +472,3 @@ Continue the conversation naturally while helping the user achieve their impact 
 
 // Create and export singleton instance
 export const llmService = new LLMService();
-export { LLMService };

@@ -332,18 +332,5 @@ export class Assert {
   }
 }
 
-// Export all error classes and utilities
-export {
-  AppError as default,
-  ValidationError,
-  DatabaseError,
-  ExternalServiceError,
-  RateLimitError,
-  LLMError,
-  errorHandler,
-  notFoundHandler,
-  asyncHandler,
-  Assert,
-  handlePrismaError,
-  handleJoiError
-};
+// Error classes and utilities are already exported above individually
+export default AppError;

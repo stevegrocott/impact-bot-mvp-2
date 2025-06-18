@@ -9,6 +9,9 @@ interface Notification {
   createdAt: string;
 }
 
+type UserMode = 'chat' | 'visual' | 'quickstart';
+type PersonalityType = 'coach' | 'advisor' | 'analyst';
+
 interface UIState {
   sidebarOpen: boolean;
   chatPanelOpen: boolean;
@@ -18,6 +21,12 @@ interface UIState {
   modals: Record<string, boolean>;
   activeModule: string;
   breadcrumbs: Array<{ label: string; path: string }>;
+  // Welcome and mode selection state
+  currentMode: UserMode | null;
+  aiPersonality: PersonalityType | null;
+  welcomeCompleted: boolean;
+  onboardingStep: number;
+  userType: 'founder' | 'me_professional' | 'mixed_team' | null;
 }
 
 const initialState: UIState = {
@@ -29,6 +38,12 @@ const initialState: UIState = {
   modals: {},
   activeModule: 'dashboard',
   breadcrumbs: [],
+  // Welcome and mode selection initial state
+  currentMode: null,
+  aiPersonality: null,
+  welcomeCompleted: false,
+  onboardingStep: 0,
+  userType: null,
 };
 
 const uiSlice = createSlice({
@@ -78,6 +93,29 @@ const uiSlice = createSlice({
     setBreadcrumbs: (state, action: PayloadAction<Array<{ label: string; path: string }>>) => {
       state.breadcrumbs = action.payload;
     },
+    // Welcome and mode selection actions
+    setUserMode: (state, action: PayloadAction<UserMode>) => {
+      state.currentMode = action.payload;
+    },
+    setPersonality: (state, action: PayloadAction<PersonalityType>) => {
+      state.aiPersonality = action.payload;
+    },
+    setUserType: (state, action: PayloadAction<'founder' | 'me_professional' | 'mixed_team'>) => {
+      state.userType = action.payload;
+    },
+    completeWelcome: (state) => {
+      state.welcomeCompleted = true;
+    },
+    setOnboardingStep: (state, action: PayloadAction<number>) => {
+      state.onboardingStep = action.payload;
+    },
+    resetOnboarding: (state) => {
+      state.currentMode = null;
+      state.aiPersonality = null;
+      state.welcomeCompleted = false;
+      state.onboardingStep = 0;
+      state.userType = null;
+    },
   },
 });
 
@@ -94,6 +132,15 @@ export const {
   setModal,
   setActiveModule,
   setBreadcrumbs,
+  setUserMode,
+  setPersonality,
+  setUserType,
+  completeWelcome,
+  setOnboardingStep,
+  resetOnboarding,
 } = uiSlice.actions;
+
+// Export actions as a named object for convenience
+export const uiActions = uiSlice.actions;
 
 export default uiSlice.reducer;

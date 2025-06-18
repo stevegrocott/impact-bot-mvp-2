@@ -7,21 +7,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Shield, 
-  CheckCircle, 
   AlertTriangle, 
   ArrowRight,
-  Target,
-  Users,
-  FileText,
-  MessageCircle,
-  Star,
-  BarChart3,
   Lightbulb,
-  TrendingUp
+  Users,
+  Target,
+  Zap
 } from 'lucide-react';
-import PhaseGatedWorkflow from '../components/PhaseGatedWorkflow';
-import FoundationReadinessCard from '../modules/onboarding/components/FoundationReadinessCard';
+import { apiClient } from '../shared/services/apiClient';
+import FoundationReadinessWidget from '../components/FoundationReadinessWidget';
+import CollaborativeFoundationBuilder from '../components/CollaborativeFoundationBuilder';
+import { logger } from '../utils/logger';
 
 // Types
 interface PhaseGateStatus {
@@ -53,7 +49,6 @@ export const FoundationDashboard: React.FC = () => {
   const [foundationReadiness, setFoundationReadiness] = useState<FoundationReadiness | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<string>('foundation');
 
   // Load foundation status
   useEffect(() => {
@@ -61,36 +56,32 @@ export const FoundationDashboard: React.FC = () => {
       setIsLoading(true);
       try {
         // Load foundation status
-        const statusResponse = await fetch('/api/v1/foundation/status', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
-        });
+        const statusResponse = await apiClient.getFoundationStatus();
+        
+        if (statusResponse.success) {
+          setFoundationStatus(statusResponse.data);
 
-        if (!statusResponse.ok) {
-          throw new Error('Failed to load foundation status');
-        }
+          // Load readiness assessment if foundation exists
+          if (statusResponse.data.hasTheoryOfChange) {
+            try {
+              const readinessResponse = await apiClient.request({
+                method: 'GET',
+                url: '/theory-of-change/foundation-readiness'
+              });
 
-        const statusData = await statusResponse.json();
-        setFoundationStatus(statusData.data);
-
-        // Load readiness assessment if foundation exists
-        if (statusData.data.hasTheoryOfChange) {
-          const readinessResponse = await fetch('/api/v1/foundation/assess-readiness', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              if (readinessResponse.success) {
+                setFoundationReadiness(readinessResponse.data as FoundationReadiness);
+              }
+            } catch (readinessErr) {
+              logger.warn('Could not load foundation readiness:', readinessErr);
             }
-          });
-
-          if (readinessResponse.ok) {
-            const readinessData = await readinessResponse.json();
-            setFoundationReadiness(readinessData.data);
           }
+        } else {
+          throw new Error(statusResponse.message || 'Failed to load foundation status');
         }
 
       } catch (err) {
+        logger.error('Foundation status error:', err);
         setError(err instanceof Error ? err.message : 'Failed to load foundation data');
       } finally {
         setIsLoading(false);
@@ -100,85 +91,7 @@ export const FoundationDashboard: React.FC = () => {
     loadFoundationStatus();
   }, []);
 
-  // Handle phase selection
-  const handlePhaseSelect = (phaseId: string) => {
-    setCurrentPhase(phaseId);
-    
-    // Navigate to appropriate page based on phase
-    switch (phaseId) {
-      case 'foundation':
-        if (!foundationStatus?.hasTheoryOfChange) {
-          navigate('/foundation/theory-of-change');
-        }
-        break;
-      case 'discovery':
-        navigate('/indicators');
-        break;
-      case 'planning':
-        navigate('/indicators/planning');
-        break;
-      case 'guidance':
-        navigate('/chat');
-        break;
-      case 'advanced':
-        navigate('/admin');
-        break;
-      case 'implementation':
-        navigate('/reports');
-        break;
-      default:
-        break;
-    }
-  };
 
-  // Quick action cards
-  const getQuickActions = () => {
-    if (!foundationStatus) return [];
-
-    const actions = [];
-
-    if (!foundationStatus.hasTheoryOfChange) {
-      actions.push({
-        title: 'Create Theory of Change',
-        description: 'Start with foundation-first measurement design',
-        icon: <Shield className="w-6 h-6" />,
-        color: 'bg-blue-600',
-        action: () => navigate('/foundation/theory-of-change')
-      });
-    }
-
-    if (!foundationStatus.hasDecisionMapping) {
-      actions.push({
-        title: 'Map Your Decisions',
-        description: 'Define what decisions your data will inform',
-        icon: <Target className="w-6 h-6" />,
-        color: 'bg-purple-600',
-        action: () => navigate('/foundation/decisions')
-      });
-    }
-
-    if (foundationStatus.allowsBasicAccess) {
-      actions.push({
-        title: 'Explore Indicators',
-        description: 'Discover relevant IRIS+ indicators',
-        icon: <BarChart3 className="w-6 h-6" />,
-        color: 'bg-green-600',
-        action: () => navigate('/indicators')
-      });
-    }
-
-    if (foundationStatus.allowsIntermediateAccess) {
-      actions.push({
-        title: 'Get AI Guidance',
-        description: 'Receive personalized measurement coaching',
-        icon: <MessageCircle className="w-6 h-6" />,
-        color: 'bg-indigo-600',
-        action: () => navigate('/chat')
-      });
-    }
-
-    return actions.slice(0, 4); // Limit to 4 actions
-  };
 
   if (isLoading) {
     return (
@@ -210,212 +123,182 @@ export const FoundationDashboard: React.FC = () => {
     );
   }
 
-  const quickActions = getQuickActions();
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          Foundation Dashboard
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Welcome Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          👋 Welcome back, Demo User!
         </h1>
-        <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-          Complete your measurement foundation to unlock advanced features. 
-          This prevents expensive measurement failures through foundation-first design.
-        </p>
+        <p className="text-gray-600">Continue building your impact measurement foundation</p>
       </div>
 
-      {/* Foundation status overview */}
-      {foundationStatus && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Foundation Status
-            </h2>
-            
-            {foundationReadiness && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Completeness:</span>
-                <span className="text-2xl font-bold text-blue-600">
-                  {foundationReadiness.completenessScore}%
-                </span>
-              </div>
-            )}
-          </div>
+      {/* Enhanced Foundation Dashboard - Week 3 Implementation */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Main Foundation Readiness - Enhanced Widget */}
+        <div className="lg:col-span-2">
+          <FoundationReadinessWidget
+            onImprove={(action) => {
+              // Navigate to relevant action
+              if (action.includes('Theory of Change')) {
+                navigate('/foundation/theory-of-change');
+              } else if (action.includes('Decision')) {
+                navigate('/foundation/decisions');
+              } else if (action.includes('Indicator')) {
+                navigate('/indicators');
+              }
+            }}
+            showDetailedBreakdown={true}
+          />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Theory of Change Status */}
-            <div className={`p-4 rounded-lg border ${
-              foundationStatus.hasTheoryOfChange 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-red-50 border-red-200'
-            }`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  {foundationStatus.hasTheoryOfChange ? (
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                  ) : (
-                    <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
-                  )}
-                  <h3 className="font-medium text-gray-900">Theory of Change</h3>
-                </div>
-              </div>
-              
-              <p className={`text-sm ${
-                foundationStatus.hasTheoryOfChange ? 'text-green-700' : 'text-red-700'
-              }`}>
-                {foundationStatus.hasTheoryOfChange 
-                  ? 'Complete and validated'
-                  : 'Required for measurement features'
-                }
-              </p>
-              
-              {!foundationStatus.hasTheoryOfChange && (
+        {/* Quick Actions Sidebar */}
+        <div className="space-y-6">
+          {/* Quick Start Options */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+              <Zap className="w-5 h-5 mr-2 text-blue-600" />
+              Quick Actions
+            </h3>
+            <div className="space-y-3">
+              {!foundationStatus?.hasTheoryOfChange ? (
                 <button
                   onClick={() => navigate('/foundation/theory-of-change')}
-                  className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors flex items-center justify-between group"
                 >
-                  Create Theory of Change →
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">🎯</span>
+                    <span className="font-medium text-blue-900 text-sm">Create Theory of Change</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-blue-600 group-hover:translate-x-1 transition-transform" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/foundation/theory-of-change')}
+                  className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors flex items-center justify-between group"
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">🎯</span>
+                    <span className="font-medium text-gray-900 text-sm">Review Theory of Change</span>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                 </button>
               )}
-            </div>
-
-            {/* Decision Mapping Status */}
-            <div className={`p-4 rounded-lg border ${
-              foundationStatus.hasDecisionMapping 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  {foundationStatus.hasDecisionMapping ? (
-                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                  ) : (
-                    <Target className="w-5 h-5 text-yellow-600 mr-2" />
-                  )}
-                  <h3 className="font-medium text-gray-900">Decision Mapping</h3>
-                </div>
-              </div>
-              
-              <p className={`text-sm ${
-                foundationStatus.hasDecisionMapping ? 'text-green-700' : 'text-yellow-700'
-              }`}>
-                {foundationStatus.decisionCount} decisions mapped
-              </p>
               
               <button
                 onClick={() => navigate('/foundation/decisions')}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors flex items-center justify-between group"
               >
-                {foundationStatus.hasDecisionMapping ? 'Review decisions' : 'Map decisions'} →
-              </button>
-            </div>
-
-            {/* Access Level */}
-            <div className="p-4 rounded-lg border bg-blue-50 border-blue-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <Star className="w-5 h-5 text-blue-600 mr-2" />
-                  <h3 className="font-medium text-gray-900">Access Level</h3>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">📋</span>
+                  <span className="font-medium text-gray-900 text-sm">Decision Mapping</span>
                 </div>
-              </div>
+                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
+              </button>
               
-              <p className="text-sm text-blue-700 mb-2">
-                {foundationStatus.allowsAdvancedAccess ? 'Advanced Access' :
-                 foundationStatus.allowsIntermediateAccess ? 'Intermediate Access' :
-                 foundationStatus.allowsBasicAccess ? 'Basic Access' : 'Foundation Required'}
-              </p>
-              
-              <div className="text-xs text-blue-600">
-                {foundationStatus.allowsAdvancedAccess ? 'All features unlocked' :
-                 foundationStatus.allowsIntermediateAccess ? 'Most features available' :
-                 foundationStatus.allowsBasicAccess ? 'Browse and explore only' : 'Complete foundation first'}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      {quickActions.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
-            Recommended Next Steps
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {quickActions.map((action, index) => (
               <button
-                key={index}
-                onClick={action.action}
-                className="text-left p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+                onClick={() => navigate('/indicators')}
+                disabled={!foundationStatus?.allowsBasicAccess}
+                className={`w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between group ${
+                  foundationStatus?.allowsBasicAccess 
+                    ? 'bg-gray-50 hover:bg-gray-100 border-gray-200' 
+                    : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
               >
-                <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center text-white mb-3`}>
-                  {action.icon}
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">🔍</span>
+                  <span className={`font-medium text-sm ${
+                    foundationStatus?.allowsBasicAccess ? 'text-gray-900' : 'text-gray-500'
+                  }`}>
+                    Browse Indicators
+                  </span>
                 </div>
-                
-                <h3 className="font-medium text-gray-900 mb-2">
-                  {action.title}
-                </h3>
-                
-                <p className="text-sm text-gray-600">
-                  {action.description}
-                </p>
-                
-                <div className="flex items-center mt-3 text-blue-600">
-                  <span className="text-sm font-medium">Get started</span>
-                  <ArrowRight className="ml-1 w-4 h-4" />
-                </div>
+                <ArrowRight className={`w-4 h-4 ${
+                  foundationStatus?.allowsBasicAccess ? 'text-gray-600 group-hover:translate-x-1' : 'text-gray-400'
+                } transition-transform`} />
               </button>
-            ))}
+              
+              <button
+                onClick={() => navigate('/chat')}
+                className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors flex items-center justify-between group"
+              >
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">💬</span>
+                  <span className="font-medium text-gray-900 text-sm">AI Guide Chat</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+
+          {/* Foundation Level Progress */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+              <Target className="w-5 h-5 mr-2 text-green-600" />
+              Progress Tracker
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Foundation Phase</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {foundationReadiness?.completenessScore || 0}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${foundationReadiness?.completenessScore || 0}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-500">
+                {foundationReadiness?.readinessLevel === 'insufficient' ? 
+                  'Building foundation fundamentals' :
+                  foundationReadiness?.readinessLevel === 'basic' ?
+                  'Foundation established, expanding capabilities' :
+                  'Advanced foundation ready for comprehensive measurement'
+                }
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Phase-gated workflow */}
-        <div>
-          {foundationStatus && (
-            <PhaseGatedWorkflow
-              foundationStatus={foundationStatus}
-              currentPhase={currentPhase}
-              onPhaseSelect={handlePhaseSelect}
-            />
-          )}
+      {/* Collaborative Foundation Building - Week 3 Feature */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <Users className="w-6 h-6 mr-3 text-blue-600" />
+            Team Collaboration
+          </h2>
+          <p className="text-sm text-gray-600">Work together to build your foundation</p>
         </div>
-
-        {/* Foundation readiness assessment */}
-        <div>
-          {foundationReadiness ? (
-            <FoundationReadinessCard readiness={foundationReadiness} />
-          ) : foundationStatus?.hasTheoryOfChange ? (
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Assessing foundation readiness...</p>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <div className="text-center py-8">
-                <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Foundation Assessment
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Complete your theory of change to receive a foundation readiness assessment.
-                </p>
-                <button
-                  onClick={() => navigate('/foundation/theory-of-change')}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700"
-                >
-                  Start Foundation Setup
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        
+        <CollaborativeFoundationBuilder
+          mode="facilitator"
+          onCreateSession={async () => {
+            // Implement proper session creation
+            try {
+              const response = await fetch('/api/v1/collaboration/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: 'Foundation Building Session',
+                  type: 'foundation_building'
+                })
+              });
+              
+              if (response.ok) {
+                await response.json();
+                // Handle successful session creation
+                window.location.reload(); // Temporary - should update state instead
+              }
+            } catch (error) {
+              logger.error('Failed to create collaboration session:', error);
+            }
+          }}
+        />
       </div>
 
       {/* Pitfall prevention info */}

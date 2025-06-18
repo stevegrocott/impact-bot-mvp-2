@@ -962,10 +962,20 @@ export class ConversationController {
    */
   private async analyzeUserIntent(message: string, conversation: any): Promise<string> {
     try {
+      // Check if organization has existing measurements
+      const [measurementCount, theoryOfChange] = await Promise.all([
+        prisma.userMeasurement.count({
+          where: { organizationId: conversation.organizationId }
+        }),
+        prisma.organizationTheoryOfChange.findUnique({
+          where: { organizationId: conversation.organizationId }
+        })
+      ]);
+
       const context = {
         conversationLength: conversation.messages?.length || 0,
         organizationIndustry: conversation.organization?.industry,
-        hasExistingMeasurements: false // TODO: Check if org has measurements
+        hasExistingMeasurements: measurementCount > 0 || !!theoryOfChange
       };
 
       const intentAnalysis = await llmService.analyzeIntent(message, context);

@@ -370,4 +370,3 @@ export class IrisCacheService {
 
 // Create and export singleton instance
 export const cacheService = new CacheService();
-export { IrisCacheService };

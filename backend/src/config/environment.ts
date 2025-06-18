@@ -38,15 +38,27 @@ const configSchema = Joi.object({
   
   AIRTABLE_TOKEN: Joi.string()
     .pattern(/^pat[a-zA-Z0-9]{14}\.[a-zA-Z0-9]{64}$/)
-    .required(),
+    .when('NODE_ENV', {
+      is: 'development',
+      then: Joi.string().optional(),
+      otherwise: Joi.required()
+    }),
   
   AIRTABLE_BASE_ID: Joi.string()
     .pattern(/^app[a-zA-Z0-9]{14}$/)
-    .required(),
+    .when('NODE_ENV', {
+      is: 'development', 
+      then: Joi.string().optional(),
+      otherwise: Joi.required()
+    }),
   
   ANTHROPIC_API_KEY: Joi.string()
     .pattern(/^sk-ant-/)
-    .required(),
+    .when('NODE_ENV', {
+      is: 'development',
+      then: Joi.string().optional(),
+      otherwise: Joi.required()
+    }),
   
   CORS_ORIGINS: Joi.string()
     .default('http://localhost:3000'),

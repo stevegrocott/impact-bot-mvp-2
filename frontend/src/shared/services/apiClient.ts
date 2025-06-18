@@ -79,7 +79,7 @@ class ApiClient {
   }
 
   // Generic request method
-  private async request<T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async request<T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       const response: AxiosResponse<ApiResponse<T>> = await this.client.request(config);
       return response.data;
@@ -312,6 +312,50 @@ class ApiClient {
     return this.request({
       method: 'GET',
       url: `/content/${contentId}/quality-score`,
+    });
+  }
+
+  // Foundation endpoints
+  async getFoundationStatus(): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/foundation/status',
+    });
+  }
+
+  async assessFoundationReadiness(): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/foundation/assess-readiness',
+    });
+  }
+
+  async checkFeatureAccess(feature: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: `/foundation/access-check/${feature}`,
+    });
+  }
+
+  async startGuidedFoundationSetup(data: any): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/foundation/start-guided-setup',
+      data,
+    });
+  }
+
+  async getFoundationProgress(): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/foundation/progress',
+    });
+  }
+
+  async getFoundationRecommendations(): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/foundation/recommendations',
     });
   }
 }

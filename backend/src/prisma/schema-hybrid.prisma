@@ -24,7 +24,7 @@ model IrisImpactCategory {
   sortOrder   Int      @default(0) @map("sort_order")
   
   // Vector embeddings
-  embedding            String?   @db.VarChar // Note: Prisma doesn't support vector type yet, using String as placeholder
+  embedding            Unsupported("vector(1536)")?
   embeddingModel       String?   @default("text-embedding-ada-002") @map("embedding_model") @db.VarChar(100)
   embeddingUpdatedAt   DateTime? @map("embedding_updated_at") @db.Timestamptz(6)
   
@@ -46,7 +46,7 @@ model IrisImpactTheme {
   sortOrder   Int      @default(0) @map("sort_order")
   
   // Vector embeddings
-  embedding            String?   @db.VarChar
+  embedding            Unsupported("vector(1536)")?
   embeddingModel       String?   @default("text-embedding-ada-002") @map("embedding_model") @db.VarChar(100)
   embeddingUpdatedAt   DateTime? @map("embedding_updated_at") @db.Timestamptz(6)
   
@@ -69,7 +69,7 @@ model IrisStrategicGoal {
   sortOrder   Int      @default(0) @map("sort_order")
   
   // Vector embeddings
-  embedding            String?   @db.VarChar
+  embedding            Unsupported("vector(1536)")?
   embeddingModel       String?   @default("text-embedding-ada-002") @map("embedding_model") @db.VarChar(100)
   embeddingUpdatedAt   DateTime? @map("embedding_updated_at") @db.Timestamptz(6)
   
@@ -97,7 +97,7 @@ model IrisKeyIndicator {
   sortOrder               Int      @default(0) @map("sort_order")
   
   // Vector embeddings
-  embedding            String?   @db.VarChar
+  embedding            Unsupported("vector(1536)")?
   embeddingModel       String?   @default("text-embedding-ada-002") @map("embedding_model") @db.VarChar(100)
   embeddingUpdatedAt   DateTime? @map("embedding_updated_at") @db.Timestamptz(6)
   
@@ -120,7 +120,7 @@ model LlmContentChunk {
   id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   
   // VECTOR SEARCH CAPABILITIES
-  embedding         String   @db.VarChar // Placeholder for vector(1536)
+  embedding         Unsupported("vector(1536)")?
   queryKeywords     String[] @map("query_keywords")
   semanticTags      String[] @default([]) @map("semantic_tags")
   
@@ -150,7 +150,7 @@ model LlmContentChunk {
 
 model VectorSimilarityCache {
   id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  queryEmbedding     String   @map("query_embedding") @db.VarChar // Placeholder for vector(1536)
+  queryEmbedding     Unsupported("vector(1536)")? @map("query_embedding")
   similarContentIds  String[] @map("similar_content_ids")
   similarityScores   Decimal[] @map("similarity_scores")
   queryHash          String   @unique @map("query_hash") @db.VarChar(64)
@@ -181,7 +181,7 @@ model LlmTrainingPair {
   qualityScore      Decimal? @map("quality_score") @db.Decimal(3,2)
   userSatisfaction  Int?     @map("user_satisfaction")
   improvementNotes  String?  @map("improvement_notes") @db.Text
-  embedding         String?  @db.VarChar // Placeholder for vector(1536)
+  embedding         Unsupported("vector(1536)")?
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -202,7 +202,7 @@ model Conversation {
   title                String?  @db.VarChar(500)
   conversationType     String   @default("discovery") @map("conversation_type") @db.VarChar(100)
   contextData          Json     @default("{}") @map("context_data") @db.JsonB
-  contextEmbedding     String?  @map("context_embedding") @db.VarChar // Placeholder for vector(1536)
+  contextEmbedding     Unsupported("vector(1536)")? @map("context_embedding")
   currentStep          String?  @map("current_step") @db.VarChar(100)
   completionPercentage Int      @default(0) @map("completion_percentage")
   isActive             Boolean  @default(true) @map("is_active")
@@ -224,7 +224,7 @@ model ConversationMessage {
   conversationId   String   @map("conversation_id") @db.Uuid
   messageType      String   @map("message_type") @db.VarChar(50)
   content          String   @db.Text
-  contentEmbedding String?  @map("content_embedding") @db.VarChar // Placeholder for vector(1536)
+  contentEmbedding Unsupported("vector(1536)")? @map("content_embedding")
   metadata         Json     @default("{}") @db.JsonB
   relevanceScore   Decimal? @map("relevance_score") @db.Decimal(5,4)
   explanation      String?  @db.Text
@@ -262,13 +262,13 @@ model ConversationRecommendation {
 model QueryPattern {
   id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   queryText             String   @map("query_text") @db.Text
-  queryVector           String?  @map("query_vector") @db.VarChar // Placeholder for vector(1536)
+  queryVector           Unsupported("vector(1536)")? @map("query_vector")
   intentClassification  String?  @map("intent_classification") @db.VarChar(100)
   entitiesExtracted     Json     @default("[]") @map("entities_extracted") @db.JsonB
   successfulResultsCount Int     @default(0) @map("successful_results_count")
   totalUsageCount       Int      @default(1) @map("total_usage_count")
   avgUserSatisfaction   Decimal? @map("avg_user_satisfaction") @db.Decimal(3,2)
-  contextEmbedding      String?  @map("context_embedding") @db.VarChar // Placeholder for vector(1536)
+  contextEmbedding      Unsupported("vector(1536)")? @map("context_embedding")
   improvementSuggestions Json    @default("{}") @map("improvement_suggestions") @db.JsonB
   learningWeight        Decimal  @default(1.0) @map("learning_weight") @db.Decimal(5,4)
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -581,7 +581,7 @@ model IrisKeyDimension {
   sortOrder   Int      @default(0) @map("sort_order")
   
   // Vector embeddings
-  embedding            String?   @db.VarChar
+  embedding            Unsupported("vector(1536)")?
   embeddingModel       String?   @default("text-embedding-ada-002") @map("embedding_model") @db.VarChar(100)
   embeddingUpdatedAt   DateTime? @map("embedding_updated_at") @db.Timestamptz(6)
   

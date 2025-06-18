@@ -388,11 +388,4 @@ export class SecurityLogger {
   }
 }
 
-// Export logger and utilities
-export {
-  PerformanceLogger,
-  QueryLogger,
-  RequestLogger,
-  LLMLogger,
-  SecurityLogger
-};
+// Logger classes are already exported above individually

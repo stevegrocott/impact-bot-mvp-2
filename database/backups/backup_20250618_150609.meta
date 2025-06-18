@@ -1,0 +1,4 @@
+BACKUP_DATE=20250618_150609
+DATABASE_VERSION= PostgreSQL 16.8 (Debian 16.8-1.pgdg120+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+SCHEMA_VERSION=    36
+RECORD_COUNTS=

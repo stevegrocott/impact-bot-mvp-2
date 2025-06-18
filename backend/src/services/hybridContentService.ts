@@ -7,6 +7,7 @@ import { prisma } from '@/config/database';
 import { cacheService } from './cache';
 import { logger, PerformanceLogger } from '@/utils/logger';
 import { AppError } from '@/utils/errors';
+import { vectorSearchService } from './vectorSearchService';
 
 interface ContentQuery {
   query: string;
@@ -180,8 +181,36 @@ export class HybridContentService {
     } catch (error) {
       logger.error('Hybrid search failed', { query: contentQuery.query, error });
       
-      // Fallback to basic search
-      return this.performBasicSearch(contentQuery);
+      // Try vector search service as fallback
+      try {
+        const vectorResults = await vectorSearchService.searchIRISContent(
+          contentQuery.query,
+          contentQuery.maxResults || this.MAX_CONTENT_CHUNKS
+        );
+
+        return vectorResults.map(result => ({
+          id: result.id,
+          type: result.contentType,
+          content: `# ${result.name}\n\n${result.description || ''}`,
+          relevanceScore: result.relevanceScore,
+          explanation: result.explanation || 'Vector search match',
+          metadata: {
+            sourceEntity: {
+              id: result.id,
+              type: result.contentType,
+              name: result.name
+            },
+            complexity: 2,
+            completeness: 0.7,
+            clarity: 0.7,
+            actionability: 0.6
+          }
+        }));
+      } catch (vectorError) {
+        logger.error('Vector search fallback failed', { error: vectorError });
+        // Final fallback to basic search
+        return this.performBasicSearch(contentQuery);
+      }
     }
   }
 
@@ -642,4 +671,3 @@ This context provides comprehensive IRIS+ framework information relevant to the 
 
 // Create and export singleton instance
 export const hybridContentService = new HybridContentService();
-export { HybridContentService };
