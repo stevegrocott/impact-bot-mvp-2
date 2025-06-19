@@ -105,4 +105,8 @@ router.use('/ai-personalities', aiPersonalityRoutes);
 import crossOrgLearningRoutes from './crossOrgLearning';
 router.use('/cross-org-learning', crossOrgLearningRoutes);
 
+// Knowledge sharing routes (best practices, method templates, and collaboration spaces)
+import knowledgeSharingRoutes from './knowledgeSharing';
+router.use('/knowledge-sharing', knowledgeSharingRoutes);
+
 export default router;
