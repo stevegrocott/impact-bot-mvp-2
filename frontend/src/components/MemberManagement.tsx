@@ -148,7 +148,7 @@ export const MemberManagement: React.FC<MemberManagementProps> = ({
   };
 
   const handleRemoveMember = async (memberId: string, memberEmail: string) => {
-    if (!confirm(`Are you sure you want to remove ${memberEmail} from the organization?`)) {
+    if (!window.confirm(`Are you sure you want to remove ${memberEmail} from the organization?`)) {
       return;
     }
 
