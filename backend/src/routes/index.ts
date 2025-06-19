@@ -117,4 +117,8 @@ router.use('/adaptive-recommendations', adaptiveIndicatorRecommendationRoutes);
 import advancedPitfallPreventionRoutes from './advancedPitfallPreventionRoutes';
 router.use('/advanced-pitfall-prevention', advancedPitfallPreventionRoutes);
 
+// Peer benchmarking routes (peer comparison, performance analysis, best practice identification)
+import peerBenchmarkingRoutes from './peerBenchmarkingRoutes';
+router.use('/peer-benchmarking', peerBenchmarkingRoutes);
+
 export default router;
