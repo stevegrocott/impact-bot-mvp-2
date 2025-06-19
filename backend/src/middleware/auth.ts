@@ -388,7 +388,9 @@ export function requirePermission(permission: string) {
 /**
  * Role-based access control middleware
  */
-export function requireRole(roleName: string) {
+export function requireRole(roleNames: string | string[]) {
+  const allowedRoles = Array.isArray(roleNames) ? roleNames : [roleNames];
+  
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user || !req.organization) {
       res.status(401).json({
@@ -398,16 +400,17 @@ export function requireRole(roleName: string) {
       return;
     }
 
-    if (req.organization.role.name !== roleName && req.organization.role.name !== 'admin') {
+    const userRole = req.organization.role.name;
+    if (!allowedRoles.includes(userRole) && userRole !== 'admin') {
       SecurityLogger.logPermissionDenied(
         req.user.id,
         req.path,
-        `role:${roleName}`,
-        `User has role: ${req.organization.role.name}`
+        `role:${allowedRoles.join('|')}`,
+        `User has role: ${userRole}`
       );
 
       res.status(403).json({
-        error: `Role '${roleName}' required`,
+        error: `Role(s) '${allowedRoles.join(', ')}' required`,
         code: 'ROLE_REQUIRED'
       });
       return;

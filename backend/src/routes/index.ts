@@ -81,4 +81,28 @@ router.use('/warnings', realTimeWarningRoutes);
 // Data collection planning routes (comprehensive planning for custom indicators)
 router.use('/data-collection', dataCollectionPlanningRoutes);
 
+// Data collection workflow routes (workflow templates, scheduling, and progress tracking)
+import dataCollectionWorkflowRoutes from './dataCollectionWorkflow';
+router.use('/workflows', dataCollectionWorkflowRoutes);
+
+// Data quality validation routes (validation rules, quality assurance, and quality reporting)
+import dataQualityValidationRoutes from './dataQualityValidation';
+router.use('/validation', dataQualityValidationRoutes);
+
+// Data source integration routes (external data sources, field mapping, and synchronization)
+import dataSourceIntegrationRoutes from './dataSourceIntegration';
+router.use('/integration', dataSourceIntegrationRoutes);
+
+// Stakeholder reporting routes (audience targeting, tailored reports, and engagement analytics)
+import stakeholderReportingRoutes from './stakeholderReporting';
+router.use('/stakeholder-reporting', stakeholderReportingRoutes);
+
+// AI personality routes (Coach Riley, Advisor Morgan, Analyst Alex - contextual AI guidance)
+import aiPersonalityRoutes from './aiPersonalities';
+router.use('/ai-personalities', aiPersonalityRoutes);
+
+// Cross-organizational learning routes (pattern analysis, benchmarking, and learning insights)
+import crossOrgLearningRoutes from './crossOrgLearning';
+router.use('/cross-org-learning', crossOrgLearningRoutes);
+
 export default router;
