@@ -69,4 +69,11 @@ router.post(
   asyncHandler(reportController.shareReport)
 );
 
+// Download report file
+router.get(
+  '/:reportId/download/:fileName',
+  requirePermission('report:read'),
+  asyncHandler(reportController.downloadReport)
+);
+
 export default router;

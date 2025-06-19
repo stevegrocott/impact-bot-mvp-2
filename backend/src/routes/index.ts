@@ -19,6 +19,7 @@ import { decisionMappingRoutes } from './decisionMappingRoutes';
 import foundationRoutes from './foundationRoutes';
 import { adminAnalyticsRoutes } from './adminAnalyticsRoutes';
 import { realTimeWarningRoutes } from './realTimeWarningRoutes';
+import dataCollectionPlanningRoutes from './dataCollectionPlanning';
 
 const router = Router();
 
@@ -76,5 +77,8 @@ router.use('/admin/analytics', adminAnalyticsRoutes);
 
 // Real-time warning routes (pitfall prevention during interactions)
 router.use('/warnings', realTimeWarningRoutes);
+
+// Data collection planning routes (comprehensive planning for custom indicators)
+router.use('/data-collection', dataCollectionPlanningRoutes);
 
 export default router;
