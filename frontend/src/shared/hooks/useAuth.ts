@@ -72,6 +72,9 @@ export const useAuth = () => {
   }, [dispatch]);
 
   const hasPermission = useCallback((permission: string): boolean => {
+    if (!permissions || !Array.isArray(permissions)) {
+      return false;
+    }
     return permissions.includes(permission) || permissions.includes('admin');
   }, [permissions]);
 

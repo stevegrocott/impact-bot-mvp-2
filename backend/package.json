@@ -29,7 +29,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src --ext .ts,.tsx --config .eslintrc.bulletproof.js",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "health:db": "tsx src/scripts/health-check.ts",
     "sync:airtable": "tsx src/scripts/sync-airtable.ts",

@@ -26,62 +26,149 @@ const roleDefinitions = {
     name: 'org_admin',
     description: 'Organization administrator with full organization management',
     permissions: [
+      // Organization Management
       'org:*',
       'user:*',
+      
+      // Foundation & Setup
+      'foundation:assess',
+      'foundation:configure',
+      'foundation:view_status',
+      'foundation:manage_phases',
+      
+      // Measurement & Reporting
       'measurement:*',
       'report:*',
       'indicator:*',
       'conversation:*',
-      'theory:*'
+      'theory:*',
+      
+      // Member Management
+      'member:invite',
+      'member:manage_roles',
+      'member:remove',
+      
+      // Settings & Preferences
+      'settings:org_privacy',
+      'settings:notifications',
+      'settings:org_profile'
     ]
   },
   [SystemRoles.IMPACT_MANAGER]: {
     name: 'impact_manager',
     description: 'Impact measurement manager with full measurement access',
     permissions: [
+      // Foundation Access
+      'foundation:assess',
+      'foundation:view_status',
+      
+      // Core Measurement Functions
       'measurement:*',
       'report:*',
       'indicator:*',
       'conversation:*',
+      
+      // Theory of Change
       'theory:read',
       'theory:edit',
-      'user:read'
+      'theory:create',
+      
+      // User Management (limited)
+      'user:read',
+      'user:view_profiles',
+      
+      // Organization (limited)
+      'org:read',
+      'org:view_members',
+      
+      // Settings (personal)
+      'settings:personal_preferences',
+      'settings:notification_preferences'
     ]
   },
   [SystemRoles.IMPACT_ANALYST]: {
     name: 'impact_analyst',
     description: 'Impact analyst with measurement creation and editing access',
     permissions: [
+      // Foundation (view only)
+      'foundation:view_status',
+      
+      // Measurement Creation & Editing
       'measurement:create',
       'measurement:edit',
       'measurement:read',
+      
+      // Reporting (create & read)
       'report:read',
       'report:create',
+      'report:edit_own',
+      
+      // Indicators
       'indicator:read',
       'indicator:create',
+      'indicator:edit_own',
+      
+      // Conversations & AI
       'conversation:*',
-      'theory:read'
+      
+      // Theory of Change (read only)
+      'theory:read',
+      
+      // Organization (read only)
+      'org:read',
+      'user:read',
+      
+      // Settings (personal only)
+      'settings:personal_preferences'
     ]
   },
   [SystemRoles.REPORT_VIEWER]: {
     name: 'report_viewer',
     description: 'Read-only access to reports and measurements',
     permissions: [
+      // Foundation (view only)
+      'foundation:view_status',
+      
+      // Read-only Access
       'report:read',
       'measurement:read',
       'indicator:read',
+      'theory:read',
+      
+      // Limited Conversations
       'conversation:read',
-      'theory:read'
+      'conversation:ask_questions',
+      
+      // Organization (limited view)
+      'org:read',
+      'user:read',
+      
+      // Settings (personal only)
+      'settings:personal_preferences'
     ]
   },
   [SystemRoles.EXTERNAL_EVALUATOR]: {
     name: 'evaluator',
     description: 'External evaluator with limited access to assigned reports',
     permissions: [
+      // Assigned Content Only
       'report:read:assigned',
       'measurement:read:assigned',
+      'indicator:read:assigned',
+      
+      // Evaluation Functions
       'comment:create',
-      'conversation:read'
+      'comment:edit_own',
+      'evaluation:submit',
+      
+      // Limited Conversations
+      'conversation:read',
+      'conversation:ask_questions:assigned',
+      
+      // No Foundation Access (external user)
+      
+      // Settings (minimal)
+      'settings:personal_preferences'
     ]
   }
 };

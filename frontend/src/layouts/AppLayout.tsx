@@ -32,11 +32,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Foundation' },
+    { path: '/organization', icon: Users, label: 'Organization' },
     { path: '/indicators', icon: Target, label: 'Indicators' },
     { path: '/chat', icon: MessageSquare, label: 'Chat' },
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/approvals', icon: CheckSquare, label: 'Approvals' },
-    { path: '/collaboration', icon: Users, label: 'Collaboration' },
   ];
 
   const isActivePath = (path: string) => {

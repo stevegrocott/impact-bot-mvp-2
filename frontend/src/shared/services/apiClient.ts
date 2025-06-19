@@ -358,6 +358,94 @@ class ApiClient {
       url: '/foundation/recommendations',
     });
   }
+
+  // Organization management endpoints
+  async createOrganization(data: {
+    name: string;
+    description?: string;
+    industry?: string;
+    website?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/organizations',
+      data,
+    });
+  }
+
+  async getOrganization(organizationId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: `/organizations/${organizationId}`,
+    });
+  }
+
+  async updateOrganization(organizationId: string, data: {
+    name?: string;
+    description?: string;
+    industry?: string;
+    website?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'PATCH',
+      url: `/organizations/${organizationId}`,
+      data,
+    });
+  }
+
+  async getOrganizationMembers(organizationId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: `/organizations/${organizationId}/members`,
+    });
+  }
+
+  async inviteOrganizationMember(organizationId: string, data: {
+    email: string;
+    roleId: string;
+    message?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: `/organizations/${organizationId}/members/invite`,
+      data,
+    });
+  }
+
+  async updateMemberRole(organizationId: string, userId: string, data: {
+    roleId: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'PATCH',
+      url: `/organizations/${organizationId}/members/${userId}/role`,
+      data,
+    });
+  }
+
+  async removeMember(organizationId: string, userId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'DELETE',
+      url: `/organizations/${organizationId}/members/${userId}`,
+    });
+  }
+
+  async getOrganizationSettings(organizationId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: `/organizations/${organizationId}/settings`,
+    });
+  }
+
+  async updateOrganizationSettings(organizationId: string, data: {
+    allowPublicReports?: boolean;
+    notificationPreferences?: Record<string, any>;
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'PATCH',
+      url: `/organizations/${organizationId}/settings`,
+      data,
+    });
+  }
 }
 
 // Export singleton instance

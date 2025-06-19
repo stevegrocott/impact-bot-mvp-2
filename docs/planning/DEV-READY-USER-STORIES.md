@@ -1,7 +1,291 @@
 # Dev-Ready User Stories – Impact Bot (Chat-Driven IRIS+ Tool)
 
 ## Overview
-These user stories define the conversational, AI-driven interface requirements for Impact Bot v2, focused on maximizing accessibility, accelerating onboarding, and fostering adoption through minimal friction experiences.
+These user stories define the conversational, AI-driven interface requirements for Impact Bot v2, focused on maximizing accessibility, accelerating onboarding, and fostering adoption through minimal friction experiences. This document now includes comprehensive foundation infrastructure user stories with role-based access control.
+
+---
+
+## 🏗️ EPIC 1: Foundation Infrastructure User Stories
+
+### User Registration & Organization Setup
+
+**As a new organization leader**, I want to register an account and set up my organization so that I can start using the platform with appropriate structure and permissions.
+
+**Acceptance Criteria:**
+- Multi-step registration wizard with validation
+- Organization creation with industry, description, and settings
+- Initial user profile setup with preferences
+- Automatic role assignment (org_admin for creator)
+- Welcome flow with platform orientation
+
+**Role Access**: All new users (becomes org_admin for new organization)
+**Technical Requirements:**
+- `POST /api/v1/auth/register` with organization creation
+- User profile and preferences setup
+- Automatic role assignment workflow
+
+---
+
+**As a team member**, I want to accept an invitation to join an organization so that I can collaborate with appropriate access levels.
+
+**Acceptance Criteria:**
+- Email invitation with secure token validation
+- Role assignment based on invitation
+- Organization context switching if member of multiple orgs
+- Welcome flow specific to assigned role
+
+**Role Access**: All roles (via invitation)
+**Technical Requirements:**
+- `POST /api/v1/auth/accept-invitation` endpoint
+- Secure token generation and validation
+- Multi-organization user support
+
+---
+
+### Foundation Readiness Assessment
+
+**As an organization administrator**, I want to assess our foundation readiness so that I understand what setup is required before using advanced features.
+
+**Acceptance Criteria:**
+- Comprehensive assessment covering theory of change, decision mapping, data capacity
+- Visual scoring with category breakdowns
+- Actionable recommendations for improvement
+- Progress tracking over time
+- Integration with phase gate system
+
+**Role Access**: org_admin, impact_manager
+**Technical Requirements:**
+- `POST /api/v1/foundation/assess` endpoint
+- Assessment scoring algorithms
+- Recommendation engine integration
+
+---
+
+**As an impact manager**, I want to view our foundation status so that I can understand which features are available and what improvements are needed.
+
+**Acceptance Criteria:**
+- Dashboard showing overall readiness score
+- Feature availability indicators (green/yellow/red)
+- Clear next steps for improvement
+- Team progress tracking
+
+**Role Access**: org_admin, impact_manager, impact_analyst (view only), report_viewer (summary only)
+**Technical Requirements:**
+- `GET /api/v1/foundation/status` with role-based detail levels
+- Phase gate status indicators
+- Improvement recommendations
+
+---
+
+### User Profile & Preferences Management
+
+**As any platform user**, I want to manage my profile and preferences so that the platform works optimally for my role and needs.
+
+**Acceptance Criteria:**
+- Profile editing with photo, contact info, professional details
+- Complexity preference settings (basic/intermediate/advanced)
+- Notification preferences by category
+- Language and timezone settings
+- Dashboard customization options
+
+**Role Access**: All roles (own profile only, org_admin can view team profiles)
+**Technical Requirements:**
+- `PUT /api/v1/users/profile` endpoint
+- `PUT /api/v1/users/preferences` endpoint
+- Role-based profile visibility
+
+---
+
+**As a multi-organization user**, I want to easily switch between organizations so that I can work efficiently across different contexts.
+
+**Acceptance Criteria:**
+- Organization selector in header/navigation
+- Context switching with updated permissions
+- Recent organization history
+- Visual indicators for current organization
+- Session persistence across devices
+
+**Role Access**: All roles with multiple organization memberships
+**Technical Requirements:**
+- Organization context management
+- Permission updates on context switch
+- Session state management
+
+---
+
+### Permission-Based Access Control
+
+**As a platform user**, I want the interface to show only features I have permission to access so that I can focus on my authorized responsibilities.
+
+**Acceptance Criteria:**
+- Dynamic menu and navigation based on permissions
+- Component-level access control
+- Clear messaging when access is denied
+- Role-appropriate onboarding flows
+- Permission escalation requests
+
+**Role Access**: All roles (different UI based on permissions)
+**Technical Requirements:**
+- `PermissionGate` component for frontend access control
+- Role-based UI rendering
+- Permission checking utilities
+
+---
+
+### Phase Gate System
+
+**As a user**, I want to understand which features are blocked by our foundation readiness so that I know what improvements are needed to unlock capabilities.
+
+**Acceptance Criteria:**
+- Clear indicators for blocked features
+- Explanation of requirements to unlock access
+- Progress tracking toward feature availability
+- Quick actions to address blocking issues
+- Feature preview for upcoming access
+
+**Role Access**: All roles (detail level varies by role)
+**Technical Requirements:**
+- Phase gate middleware for backend
+- Feature blocking UI components
+- Improvement action workflows
+
+---
+
+## 👥 Role-Based User Stories by Persona
+
+### Super Admin Stories
+
+**As a super admin**, I want full platform access so that I can manage the entire system and support all organizations.
+
+**Acceptance Criteria:**
+- Access to all organizations and their data
+- Platform administration tools
+- System health monitoring
+- User and organization management across platform
+- Platform-wide analytics and insights
+
+**Technical Requirements:**
+- Platform-wide permission system
+- Administrative interfaces and tools
+- System monitoring dashboards
+
+---
+
+### Organization Administrator Stories
+
+**As an organization administrator**, I want complete control over my organization so that I can manage our team, settings, and foundation development.
+
+**Acceptance Criteria:**
+- Full organization management (settings, privacy, profile)
+- Team member invitation and role management
+- Foundation assessment and configuration
+- Organization-wide analytics and insights
+- Complete measurement system access
+
+**Technical Requirements:**
+- Organization management APIs
+- Member management workflows
+- Foundation configuration tools
+- Analytics dashboards
+
+---
+
+### Impact Manager Stories
+
+**As an impact manager**, I want oversight of measurement activities so that I can ensure our impact tracking meets organizational goals.
+
+**Acceptance Criteria:**
+- Foundation assessment capabilities
+- Full measurement and reporting access
+- Team coordination for data collection
+- Theory of change development and editing
+- Performance monitoring and optimization
+
+**Technical Requirements:**
+- Measurement system access
+- Theory of change editing tools
+- Team coordination features
+- Performance analytics
+
+---
+
+### Impact Analyst Stories
+
+**As an impact analyst**, I want to create and manage measurements so that I can contribute to our organization's impact tracking.
+
+**Acceptance Criteria:**
+- Measurement creation and editing
+- Report generation and analysis
+- Indicator development and management
+- Conversational AI access for guidance
+- Personal preferences and settings
+
+**Technical Requirements:**
+- Measurement creation tools
+- Indicator management system
+- Report building capabilities
+- AI conversation access
+
+---
+
+### Report Viewer Stories
+
+**As a report viewer**, I want read-only access to impact data so that I can stay informed about organizational performance.
+
+**Acceptance Criteria:**
+- Read-only access to reports and measurements
+- Foundation status visibility
+- Limited conversational AI access (questions only)
+- Personal preferences management
+- Dashboard viewing capabilities
+
+**Technical Requirements:**
+- Read-only data access
+- Limited AI interaction
+- Dashboard viewing interfaces
+- Basic preference management
+
+---
+
+### External Evaluator Stories
+
+**As an external evaluator**, I want secure access to assigned content so that I can provide expert feedback while maintaining appropriate boundaries.
+
+**Acceptance Criteria:**
+- Access only to specifically assigned reports and measurements
+- Commenting and evaluation submission capabilities
+- Limited conversational AI for assigned content
+- Secure external user experience
+- No access to organization foundation data
+
+**Technical Requirements:**
+- Assigned content access system
+- Evaluation submission workflows
+- Limited AI access
+- External user security measures
+
+---
+
+## 🔐 Permission Matrix by Feature
+
+### Foundation Features Access
+
+| Feature | Super Admin | Org Admin | Impact Manager | Impact Analyst | Report Viewer | Evaluator |
+|---------|-------------|-----------|----------------|----------------|---------------|-----------|
+| **Foundation Assessment** | ✅ Full | ✅ Full | ✅ Run/View | ❌ View Only | ❌ Summary | ❌ No Access |
+| **Foundation Configuration** | ✅ All Orgs | ✅ Own Org | ❌ No Config | ❌ No Config | ❌ No Config | ❌ No Access |
+| **Phase Gate Management** | ✅ Override | ✅ Configure | ❌ View Only | ❌ View Only | ❌ View Only | ❌ No Access |
+| **Foundation Analytics** | ✅ Platform | ✅ Own Org | ✅ Limited | ❌ View Only | ❌ Summary | ❌ No Access |
+
+### User & Organization Management Access
+
+| Feature | Super Admin | Org Admin | Impact Manager | Impact Analyst | Report Viewer | Evaluator |
+|---------|-------------|-----------|----------------|----------------|---------------|-----------|
+| **User Registration** | ✅ Platform | ✅ Invite Team | ❌ No Access | ❌ No Access | ❌ No Access | ❌ No Access |
+| **Profile Management** | ✅ All Users | ✅ Team View | ✅ Own + Team View | ✅ Own Only | ✅ Own Only | ✅ Own Only |
+| **Organization Settings** | ✅ All Orgs | ✅ Full Access | ❌ View Only | ❌ View Only | ❌ View Only | ❌ No Access |
+| **Member Management** | ✅ Platform | ✅ Full Team | ✅ View Team | ❌ View Only | ❌ View Only | ❌ No Access |
+| **Role Assignment** | ✅ Platform | ✅ Team Roles | ❌ No Access | ❌ No Access | ❌ No Access | ❌ No Access |
 
 ---
 
@@ -389,31 +673,88 @@ These user stories define the conversational, AI-driven interface requirements f
 
 ---
 
-## Implementation Priority
+## Updated Implementation Priority with Foundation Frontend
 
-### Phase 1 (MVP) - Weeks 1-4
-1. Conversational Search
-2. Instant Results on First Input
-3. Keyword to IRIS+ Mapping
-4. Onboarding Chat Flow
+### Phase 1 (Foundation & MVP) - Weeks 1-4 - Foundation & Core Chat
+1. **🏗️ EPIC 1B: Foundation Frontend Infrastructure**
+   - User Registration & Organization Creation Workflow
+   - Foundation Readiness Assessment Interface  
+   - Permission-Based Access Control UI (PermissionGate components)
+   - User Profile & Preferences Management Interface
+   - Phase Gate Status Indicators and Blocking UI
 
-### Phase 2 (Core Features) - Weeks 5-8
-1. Conversational Guidance
-2. Smart Suggestions
-3. Approval Prompts
-4. Guided CSV Import
+2. **💬 Enhanced Conversation Management** 
+   - Auto-naming, resume capabilities, profile management
+   - Basic Indicator Discovery & Understanding (detailed exploration, comparison)
 
-### Phase 3 (Enhancement) - Weeks 9-12
-1. Offline Mode
-2. Multilingual Support
-3. Custom Workflows
-4. Advanced Analytics
+3. **🔍 Core Discovery Features**
+   - Conversational Search & Recommendations
+   - Instant Results on First Input
+   - Keyword to IRIS+ Mapping
+   - Onboarding Chat Flow
 
-### Phase 4 (Scale) - Weeks 13-16
-1. Guest Mode
-2. External Sync Setup
-3. Feature Discovery
-4. Complete Audit System
+### Phase 2 (Core Features) - Weeks 5-8 - Indicator Workflow
+1. **✅ Informed Indicator Selection** 
+   - Implementation preview, conflict detection
+   - Basic Data Collection Setup (workflow configuration, team assignment)
+   - Collaborative Indicator Selection (team input, approval workflows)
+   - Implementation Difficulty Assessment
+
+2. **🤖 Conversational Intelligence**
+   - Conversational Guidance
+   - Smart Suggestions & Guidance  
+   - Approval Prompts & Workflows
+
+3. **🔌 Basic Integration**
+   - Guided CSV Import
+
+### Phase 3 (Advanced Configuration) - Weeks 9-12 - Comprehensive Setup
+1. **⚙️ Advanced Data Collection Configuration** 
+   - Multi-level data collection, validation, quality controls
+   - Data Source Integration & Mapping
+   - Reporting & Analysis Configuration
+
+2. **📊 Progress & Coordination**
+   - Progress Monitoring & Tracking
+   - Team Coordination & Approval Workflows
+   - Report Readiness Assessment
+
+3. **🔧 Enhanced Platform Features**
+   - Foundation Coaching & Guided Setup Workflow
+   - Organization Switching Interface (multi-org users)
+   - Custom Workflows
+   - Advanced Analytics
+
+### Phase 4 (Intelligence & Optimization) - Weeks 13-16 - Learning & Scaling
+1. **🔄 Learning & Continuous Improvement** 
+   - Performance analysis, adaptive recommendations
+   - Best Practice Sharing & Benchmarking
+   - Advanced Analytics & Optimization
+
+2. **👥 Stakeholder Features**
+   - Stakeholder-Specific Reporting
+   - External Evaluator & Funder Access
+   - Guest Mode & External Sync
+
+3. **🌍 Scale Features**
+   - Offline Mode
+   - Multilingual Support
+   - Complete Audit & Governance System
+
+### Phase 5 (Production Ready) - Weeks 17-20 - Enterprise & Integration
+1. **🔌 External System Integrations** 
+   - KoboToolbox, Airtable, Excel, CommCare APIs
+   - Webhook management and real-time sync
+
+2. **🏭 Production Features**
+   - Performance & Security Hardening
+   - Advanced Workflow Automation
+   - Enterprise governance features
+
+3. **📈 Advanced Intelligence**
+   - Grant-Aligned Reporting
+   - Cross-organizational pattern analysis
+   - Advanced pitfall prevention system
 
 ---
 

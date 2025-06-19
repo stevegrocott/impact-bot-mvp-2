@@ -13,6 +13,7 @@ import PersonalitySelection from './pages/PersonalitySelection';
 import VisualDashboard from './pages/VisualDashboard';
 import { TheoryOfChangeCapture } from './modules/onboarding/components/TheoryOfChangeCapture';
 import { LoginPage } from './components/LoginPage';
+import { OrganizationDashboard } from './components/OrganizationDashboard';
 import './App.css';
 
 // Auth wrapper component
@@ -163,6 +164,18 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <AppLayout>
               <div>Decision Mapping (TODO)</div>
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Organization Management routes */}
+      <Route
+        path="/organization"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <OrganizationDashboard />
             </AppLayout>
           </ProtectedRoute>
         }

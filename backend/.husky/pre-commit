@@ -1,14 +1,26 @@
 #!/usr/bin/env sh
 
-echo "🔍 Running pre-commit checks..."
+echo "🔒 Git Pre-Commit Hook: Running mandatory validation..."
 
-# Check TypeScript compilation
-echo "📝 Checking TypeScript..."
-if ! npm run build >/dev/null 2>&1; then
-  echo "❌ TypeScript compilation failed!"
-  echo "Please fix TypeScript errors before committing:"
-  npm run build
-  exit 1
+# Check if we have the comprehensive validation script at project root
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+if [ -f "$PROJECT_ROOT/scripts/pre-commit-validation.sh" ]; then
+  echo "📝 Running comprehensive validation from project root..."
+  cd "$PROJECT_ROOT"
+  ./scripts/pre-commit-validation.sh
+else
+  # Fallback to basic TypeScript check for backend only
+  echo "📝 Basic TypeScript validation (backend only)..."
+  # Ensure we're in the backend directory
+  if [ ! -f "package.json" ]; then
+    cd backend
+  fi
+  
+  if ! npm run build >/dev/null 2>&1; then
+    echo "❌ Backend TypeScript compilation failed!"
+    echo "Please fix TypeScript errors before committing:"
+    npm run build
+    exit 1
+  fi
+  echo "✅ Basic pre-commit checks passed!"
 fi
-
-echo "✅ Pre-commit checks passed!"
