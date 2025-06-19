@@ -278,22 +278,16 @@ export const FoundationDashboard: React.FC = () => {
         <CollaborativeFoundationBuilder
           mode="facilitator"
           onCreateSession={async () => {
-            // Implement proper session creation
+            // TODO: Add collaboration session endpoints to apiClient
+            // For now, just log the intent
             try {
-              const response = await fetch('/api/v1/collaboration/sessions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name: 'Foundation Building Session',
-                  type: 'foundation_building'
-                })
-              });
-              
-              if (response.ok) {
-                await response.json();
-                // Handle successful session creation
-                window.location.reload(); // Temporary - should update state instead
-              }
+              logger.info('Creating collaboration session (simulated)');
+              // const result = await apiClient.createCollaborationSession({
+              //   name: 'Foundation Building Session',
+              //   type: 'foundation_building'
+              // });
+              // Handle successful session creation
+              // Should update state instead of reload
             } catch (error) {
               logger.error('Failed to create collaboration session:', error);
             }

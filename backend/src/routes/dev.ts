@@ -72,6 +72,27 @@ if (config.NODE_ENV === 'development') {
   });
 
   /**
+   * Test auth login without middleware
+   */
+  router.post('/test-login', (req, res) => {
+    logger.info('Development test: login attempt', {
+      body: req.body,
+      contentType: req.headers['content-type']
+    });
+
+    const { email, password } = req.body;
+
+    res.json({
+      success: true,
+      received: { email, password: password ? '[REDACTED]' : undefined },
+      bodyType: typeof req.body,
+      hasEmail: !!email,
+      hasPassword: !!password,
+      message: 'Login data received successfully (test endpoint)'
+    });
+  });
+
+  /**
    * Health check with detailed info
    */
   router.get('/health', (req, res) => {
@@ -82,6 +103,7 @@ if (config.NODE_ENV === 'development') {
       endpoints: [
         'POST /api/v1/dev/test-theory-parsing',
         'POST /api/v1/dev/test-json',
+        'POST /api/v1/dev/test-login',
         'GET /api/v1/dev/health'
       ]
     });

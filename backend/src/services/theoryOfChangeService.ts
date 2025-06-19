@@ -10,6 +10,7 @@ import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
 import { llmService } from './llm';
 import { PDFProcessor } from '@/utils/pdfProcessor';
+import { transformAiResponse } from '@/utils/caseTransform';
 
 // Theory of Change structure
 export interface TheoryOfChangeStructure {
@@ -836,28 +837,14 @@ Ready to start measuring your impact effectively!`;
       // Try to parse JSON response
       const parsed = JSON.parse(content);
       
-      // Convert AI field names to frontend expected format
-      const aiExtracted = parsed.extracted || {};
-      const extracted: Partial<TheoryOfChangeStructure> = {
-        targetPopulation: aiExtracted.target_population || aiExtracted.targetPopulation,
-        problemDefinition: aiExtracted.problem_definition || aiExtracted.problemDefinition,
-        activities: aiExtracted.activities || [],
-        outputs: aiExtracted.outputs || [],
-        shortTermOutcomes: aiExtracted.short_term_outcomes || aiExtracted.shortTermOutcomes || [],
-        longTermOutcomes: aiExtracted.long_term_outcomes || aiExtracted.longTermOutcomes || [],
-        impacts: Array.isArray(aiExtracted.impacts) ? aiExtracted.impacts : [aiExtracted.impacts].filter(Boolean),
-        assumptions: aiExtracted.assumptions || [],
-        externalFactors: aiExtracted.external_factors || aiExtracted.externalFactors || [],
-        interventionType: aiExtracted.intervention_type || aiExtracted.interventionType,
-        sector: aiExtracted.sector,
-        geographicScope: aiExtracted.geographic_scope || aiExtracted.geographicScope
-      };
+      // Use consistent transformation utility
+      const transformed = transformAiResponse(parsed);
       
       return {
-        extracted,
-        confidence: parsed.confidence || 0.5,
-        gaps: parsed.gaps || [],
-        questions: parsed.questions || []
+        extracted: transformed.extracted || {},
+        confidence: transformed.confidence || 0.5,
+        gaps: transformed.gaps || [],
+        questions: transformed.questions || []
       };
     } catch {
       // Fallback: basic text parsing

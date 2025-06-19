@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../shared/hooks/useAuth';
 import { apiClient } from '../shared/services/apiClient';
 import { MemberManagement } from './MemberManagement';
+import { FoundationAssessment } from './FoundationAssessment';
 
 interface OrganizationStats {
   memberCount: number;
@@ -45,7 +46,7 @@ export const OrganizationDashboard: React.FC = () => {
   const [stats, setStats] = useState<OrganizationStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'foundation' | 'members' | 'settings'>('overview');
   const [showMemberManagement, setShowMemberManagement] = useState(false);
 
   useEffect(() => {
@@ -196,6 +197,7 @@ export const OrganizationDashboard: React.FC = () => {
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             {[
               { id: 'overview', name: 'Overview', icon: '📊' },
+              { id: 'foundation', name: 'Foundation', icon: '🏗️' },
               { id: 'members', name: 'Members', icon: '👥' },
               { id: 'settings', name: 'Settings', icon: '⚙️' }
             ].map((tab) => (
@@ -301,10 +303,13 @@ export const OrganizationDashboard: React.FC = () => {
                     <div className="text-sm text-gray-500">Invite and manage team members</div>
                   </button>
                   
-                  <button className="text-left p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all">
-                    <div className="text-xl mb-2">💬</div>
-                    <div className="font-medium text-gray-900">Start Measurement</div>
-                    <div className="text-sm text-gray-500">Begin impact measurement conversation</div>
+                  <button 
+                    onClick={() => setActiveTab('foundation')}
+                    className="text-left p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all"
+                  >
+                    <div className="text-xl mb-2">🏗️</div>
+                    <div className="font-medium text-gray-900">Foundation Assessment</div>
+                    <div className="text-sm text-gray-500">Build your impact measurement foundation</div>
                   </button>
                   
                   <button className="text-left p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition-all">
@@ -349,6 +354,10 @@ export const OrganizationDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'foundation' && (
+          <FoundationAssessment />
         )}
 
         {activeTab === 'members' && (

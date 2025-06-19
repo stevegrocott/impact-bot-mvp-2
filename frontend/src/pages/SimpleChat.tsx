@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Loader2, MessageSquare, Plus } from 'lucide-react';
-import { useAuth } from '../shared/hooks/useAuth';
+// import { useAuth } from '../shared/hooks/useAuth';
+import { apiClient } from '../shared/services/apiClient';
 
 interface Message {
   id: string;
@@ -22,7 +23,7 @@ interface Conversation {
 }
 
 const SimpleChat: React.FC = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth(); // Removed unused auth
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -51,19 +52,8 @@ const SimpleChat: React.FC = () => {
   const loadConversations = async () => {
     try {
       setIsLoadingConversations(true);
-      const token = localStorage.getItem('auth_token');
-      
-      const response = await fetch('/api/conversations', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data.data || []);
-      }
+      const result = await apiClient.getConversations();
+      setConversations(result.data || []);
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
@@ -73,19 +63,8 @@ const SimpleChat: React.FC = () => {
 
   const loadConversationHistory = async (conversationId: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      
-      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.data || []);
-      }
+      const result = await apiClient.getConversation(conversationId);
+      setMessages(result.data?.messages || []);
     } catch (error) {
       console.error('Failed to load conversation history:', error);
       setMessages([]);
@@ -110,59 +89,40 @@ const SimpleChat: React.FC = () => {
     setMessages(prev => [...prev, tempUserMessage]);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      // Use the conversation message endpoint instead of chat
+      let conversationId = activeConversationId;
       
-      const response = await fetch('/api/conversations/chat', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversationId: activeConversationId,
+      // If no active conversation, create a new one first
+      if (!conversationId) {
+        const newConversation = await apiClient.createConversation('general', {
           intent: 'ask_question'
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Update messages with actual response
-        setMessages(prev => [
-          ...prev.filter(m => m.id !== tempUserMessage.id),
-          {
-            id: data.data.userMessage.id,
-            content: data.data.userMessage.content,
-            role: 'user',
-            timestamp: data.data.userMessage.timestamp
-          },
-          {
-            id: data.data.assistantMessage.id,
-            content: data.data.assistantMessage.content,
-            role: 'assistant',
-            timestamp: data.data.assistantMessage.timestamp
-          }
-        ]);
-
-        // Update conversations list
-        if (data.data.conversation) {
-          const newConversation = data.data.conversation;
-          setConversations(prev => {
-            const existing = prev.find(c => c.id === newConversation.id);
-            if (existing) {
-              return prev.map(c => c.id === newConversation.id ? newConversation : c);
-            } else {
-              setActiveConversationId(newConversation.id);
-              return [newConversation, ...prev];
-            }
-          });
-        }
-      } else {
-        // Remove temp message on error
-        setMessages(prev => prev.filter(m => m.id !== tempUserMessage.id));
-        console.error('Failed to send message:', response.statusText);
+        });
+        conversationId = newConversation.data.id;
+        setActiveConversationId(conversationId);
       }
+      
+      const result = await apiClient.sendMessage(conversationId!, userMessage);
+      
+      // For simple response, just add assistant message
+      // Remove temp message and add both user and assistant messages
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== tempUserMessage.id),
+        {
+          id: `user-${Date.now()}`,
+          content: userMessage,
+          role: 'user',
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: `assistant-${Date.now()}`,
+          content: result.data.content || 'Sorry, I could not process your request.',
+          role: 'assistant',
+          timestamp: new Date().toISOString()
+        }
+      ]);
+
+      // Refresh conversations list
+      loadConversations();
     } catch (error) {
       // Remove temp message on error
       setMessages(prev => prev.filter(m => m.id !== tempUserMessage.id));

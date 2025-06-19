@@ -117,7 +117,10 @@ const configSchema = Joi.object({
     .integer()
     .min(1)
     .max(50)
-    .default(10)
+    .default(10),
+  
+  ANTHROPIC_MODEL: Joi.string()
+    .default('claude-3-5-sonnet-20241022')
 });
 
 // Validate and extract configuration
@@ -169,6 +172,7 @@ export const config = {
   LLM_MAX_TOKENS: envVars.LLM_MAX_TOKENS as number,
   LLM_TEMPERATURE: envVars.LLM_TEMPERATURE as number,
   CONVERSATION_CONTEXT_LIMIT: envVars.CONVERSATION_CONTEXT_LIMIT as number,
+  ANTHROPIC_MODEL: envVars.ANTHROPIC_MODEL as string,
 
   // Computed values
   IS_PRODUCTION: envVars.NODE_ENV === 'production',

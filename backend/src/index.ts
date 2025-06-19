@@ -19,6 +19,7 @@ import { logger } from '@/utils/logger';
 import { errorHandler } from '@/middleware/errorHandler';
 import { requestLogger } from '@/middleware/requestLogger';
 import { authMiddleware } from '@/middleware/auth';
+import { transformResponse } from '@/middleware/responseTransform';
 import { cacheService } from '@/services/cache';
 import { prisma } from '@/config/database';
 import routes from '@/routes';
@@ -99,6 +100,9 @@ class Server {
 
     // Request logging
     this.app.use(requestLogger);
+
+    // Response transformation (convert snake_case to camelCase)
+    this.app.use(transformResponse);
 
     // Trust proxy headers (for load balancers)
     this.app.set('trust proxy', 1);

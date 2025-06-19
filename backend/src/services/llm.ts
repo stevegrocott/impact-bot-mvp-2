@@ -47,7 +47,7 @@ interface RecommendationRequest {
 
 export class LLMService {
   private client: Anthropic;
-  private readonly model = 'claude-3-sonnet-20240229';
+  private readonly model = config.ANTHROPIC_MODEL;
   private readonly maxTokens = config.LLM_MAX_TOKENS;
   private readonly temperature = config.LLM_TEMPERATURE;
 
