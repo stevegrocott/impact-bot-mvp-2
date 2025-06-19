@@ -5,12 +5,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { 
   Upload, 
   MessageCircle, 
   FileText, 
-  CheckCircle, 
   AlertTriangle, 
   ArrowRight,
   Info,
@@ -26,6 +24,7 @@ import {
 import { GuidedStepInput } from './GuidedStepInput';
 import { TheoryOfChangePreview } from './TheoryOfChangePreview';
 import { FoundationReadinessCard } from './FoundationReadinessCard';
+import { apiClient } from '../../../shared/services/apiClient';
 
 // Types
 interface TheoryOfChangeStructure {
@@ -65,12 +64,10 @@ interface FoundationReadiness {
 
 // Component
 export const TheoryOfChangeCapture: React.FC = () => {
-  const dispatch = useDispatch();
   const [currentStep, setCurrentStep] = useState<'pathway' | 'upload' | 'guided' | 'review'>('pathway');
   const [selectedPathway, setSelectedPathway] = useState<'upload' | 'guided' | 'hybrid' | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [extractedContent, setExtractedContent] = useState<Partial<TheoryOfChangeStructure> | null>(null);
-  const [guidedProgress, setGuidedProgress] = useState(0);
   const [currentGuidedStep, setCurrentGuidedStep] = useState(0);
   const [theoryData, setTheoryData] = useState<Partial<TheoryOfChangeStructure>>({});
   const [foundationReadiness, setFoundationReadiness] = useState<FoundationReadiness | null>(null);
@@ -157,6 +154,45 @@ export const TheoryOfChangeCapture: React.FC = () => {
     setCurrentStep(pathway === 'upload' ? 'upload' : 'guided');
   };
 
+  // Helper function to read file as base64
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        
+        if (file.type === 'application/pdf') {
+          // For PDF files, read as base64 and let backend handle extraction
+          if (typeof result === 'string') {
+            resolve(result);
+          } else if (result instanceof ArrayBuffer) {
+            // Convert ArrayBuffer to base64
+            const bytes = new Uint8Array(result);
+            const binary = bytes.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+            const base64 = btoa(binary);
+            resolve(base64);
+          } else {
+            reject(new Error('Unexpected file format'));
+          }
+        } else {
+          // For text files, read as text
+          if (typeof result === 'string') {
+            resolve(result);
+          } else {
+            reject(new Error('Failed to read file as text'));
+          }
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      
+      if (file.type === 'application/pdf') {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.readAsText(file);
+      }
+    });
+  };
+
   // Handle file upload
   const handleFileUpload = async (files: FileList) => {
     setIsProcessing(true);
@@ -166,26 +202,20 @@ export const TheoryOfChangeCapture: React.FC = () => {
       const fileArray = Array.from(files);
       setUploadedFiles(fileArray);
 
-      // Create FormData for file upload
-      const formData = new FormData();
-      fileArray.forEach(file => {
-        formData.append('documents', file);
-      });
+      // Convert files to documents format expected by apiClient
+      const documents = await Promise.all(
+        fileArray.map(async (file) => {
+          const content = await readFileAsBase64(file);
+          return {
+            filename: file.name,
+            content,
+            type: file.type
+          };
+        })
+      );
 
-      // Call API to parse documents
-      const response = await fetch('/api/v1/theory-of-change/parse-documents', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to parse documents');
-      }
-
-      const result = await response.json();
+      // Call API to parse documents using apiClient
+      const result = await apiClient.uploadTheoryOfChangeDocuments('', documents);
       setExtractedContent(result.data.extractedContent);
       setTheoryData(result.data.extractedContent);
       
@@ -198,7 +228,57 @@ export const TheoryOfChangeCapture: React.FC = () => {
       }
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to process documents');
+      console.warn('Theory of change parsing failed, using fallback demo:', err);
+      
+      // Show fallback demo data when API is unavailable
+      const fallbackTheoryData = {
+        targetPopulation: "Your target population (extracted from uploaded documents)",
+        problemDefinition: "The problem your organization addresses (AI analysis would appear here)",
+        activities: [
+          "Key activities mentioned in your documents",
+          "Additional activities identified by AI",
+          "Strategic interventions from your materials"
+        ],
+        outputs: [
+          "Direct outputs from your activities",
+          "Deliverables and services provided", 
+          "Measurable products of your work"
+        ],
+        shortTermOutcomes: [
+          "Early changes in your beneficiaries",
+          "Skills and knowledge improvements",
+          "Behavior changes (6-12 months)"
+        ],
+        longTermOutcomes: [
+          "Sustained improvements in conditions",
+          "Systemic changes in beneficiary lives",
+          "Long-term wellbeing improvements"
+        ],
+        impacts: [
+          "Ultimate community-level changes",
+          "Systemic transformation goals"
+        ],
+        assumptions: [
+          "Key assumptions identified from your documents",
+          "Critical success factors"
+        ],
+        externalFactors: [
+          "External conditions affecting success",
+          "Environmental factors beyond control"
+        ],
+        interventionType: "Type of intervention (from document analysis)",
+        sector: "Sector (identified from materials)",
+        geographicScope: "Geographic scope (extracted from documents)"
+      };
+
+      setExtractedContent(fallbackTheoryData);
+      setTheoryData(fallbackTheoryData);
+      setCurrentStep('review');
+      
+      setError(
+        'AI document analysis is currently unavailable. Showing demo of what you would see with your extracted theory of change. ' +
+        'In the full version, AI would analyze your specific documents and extract your actual theory elements.'
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -215,7 +295,7 @@ export const TheoryOfChangeCapture: React.FC = () => {
 
     if (currentGuidedStep < guidedSteps.length - 1) {
       setCurrentGuidedStep(prev => prev + 1);
-      setGuidedProgress(((currentGuidedStep + 1) / guidedSteps.length) * 100);
+      // Progress is calculated inline based on currentGuidedStep
     } else {
       setCurrentStep('review');
     }
@@ -226,20 +306,7 @@ export const TheoryOfChangeCapture: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      const response = await fetch('/api/v1/foundation/assess-readiness', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({ theoryOfChange: theoryData })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to assess foundation readiness');
-      }
-
-      const result = await response.json();
+      const result = await apiClient.assessFoundationReadiness();
       setFoundationReadiness(result.data);
       
     } catch (err) {
@@ -254,22 +321,11 @@ export const TheoryOfChangeCapture: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      const response = await fetch('/api/v1/theory-of-change/store', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          theoryOfChange: theoryData,
-          pathway: selectedPathway,
-          uploadedDocuments: uploadedFiles.map(f => f.name)
-        })
+      await apiClient.updateTheoryOfChange('', {
+        theoryOfChange: theoryData,
+        pathway: selectedPathway,
+        uploadedDocuments: uploadedFiles.map(f => f.name)
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save theory of change');
-      }
 
       // Success - redirect to next step or dashboard
       window.location.href = '/foundation/readiness';
@@ -286,7 +342,7 @@ export const TheoryOfChangeCapture: React.FC = () => {
     if (currentStep === 'review' && theoryData && Object.keys(theoryData).length > 0) {
       assessFoundationReadiness();
     }
-  }, [currentStep, theoryData]);
+  }, [currentStep, theoryData, assessFoundationReadiness]);
 
   // Render pathway selection
   if (currentStep === 'pathway') {
@@ -523,10 +579,27 @@ export const TheoryOfChangeCapture: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mt-6 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-              <span className="text-red-700">{error}</span>
+          <div className={`mt-6 border rounded-md p-4 ${
+            error.includes('demo') || error.includes('unavailable') 
+              ? 'bg-blue-50 border-blue-200' 
+              : 'bg-red-50 border-red-200'
+          }`}>
+            <div className="flex items-start">
+              {error.includes('demo') || error.includes('unavailable') ? (
+                <Info className="h-5 w-5 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-red-400 mr-2 mt-0.5 flex-shrink-0" />
+              )}
+              <div className={error.includes('demo') || error.includes('unavailable') ? 'text-blue-700' : 'text-red-700'}>
+                {error.includes('demo') || error.includes('unavailable') ? (
+                  <div>
+                    <p className="font-medium text-blue-800 mb-2">Demo Mode Active</p>
+                    <p className="text-sm">{error}</p>
+                  </div>
+                ) : (
+                  <span>{error}</span>
+                )}
+              </div>
             </div>
           </div>
         )}
