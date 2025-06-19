@@ -446,6 +446,94 @@ class ApiClient {
       data,
     });
   }
+
+  // Theory of Change endpoints
+  async getTheoryOfChangePathwayAssessment(hasDocuments: boolean, hasPartialTheory: boolean): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: `/theory-of-change/pathway-assessment?hasDocuments=${hasDocuments}&hasPartialTheory=${hasPartialTheory}`,
+    });
+  }
+
+  async getTheoryOfChange(organizationId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/theory-of-change',
+    });
+  }
+
+  async uploadTheoryOfChangeDocuments(organizationId: string, documents: Array<{
+    filename: string;
+    content: string;
+    type: string;
+  }>): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/theory-of-change/upload-documents',
+      data: { documents },
+    });
+  }
+
+  async startTheoryOfChangeConversation(organizationId: string, partialTheory?: any): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/theory-of-change/guided-conversation/start',
+      data: { partialTheory },
+    });
+  }
+
+  async continueTheoryOfChangeConversation(conversationId: string, userResponse: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/theory-of-change/guided-conversation/continue',
+      data: { conversationId, userResponse },
+    });
+  }
+
+  async getFoundationReadiness(organizationId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/theory-of-change/foundation-readiness',
+    });
+  }
+
+  async updateTheoryOfChange(organizationId: string, theoryData: any): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'PUT',
+      url: '/theory-of-change/update',
+      data: theoryData,
+    });
+  }
+
+  async validateTheoryOfChange(theory: any): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/theory-of-change/validate',
+      data: { theory },
+    });
+  }
+
+  // Warning system endpoints
+  async getWarningPreview(triggerAction: string, context: Record<string, any>): Promise<ApiResponse<{
+    warnings: any[];
+    shouldBlock: boolean;
+    allowContinue: boolean;
+    contextualGuidance: string;
+  }>> {
+    return this.request({
+      method: 'POST',
+      url: '/warnings/preview',
+      data: { triggerAction, context },
+    });
+  }
+
+  async recordWarningInteraction(warningId: string, action: string): Promise<ApiResponse<void>> {
+    return this.request({
+      method: 'POST',
+      url: `/warnings/${warningId}/interact`,
+      data: { action },
+    });
+  }
 }
 
 // Export singleton instance

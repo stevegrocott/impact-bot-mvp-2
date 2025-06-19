@@ -17,6 +17,7 @@ import {
   Activity
 } from 'lucide-react';
 import PitfallWarningSystem from '../modules/indicators/components/PitfallWarningSystem';
+import { apiClient } from '../shared/services/apiClient';
 
 // Types
 interface IrisIndicator {
@@ -138,34 +139,18 @@ export const IndicatorSelection: React.FC = () => {
     setIsLoadingWarnings(true);
     
     try {
-      // Mock API call to warning system
-      const response = await fetch('/api/v1/warnings/preview', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          triggerAction: 'indicator_selection',
-          context: {
-            currentStep: 'indicator_selection',
-            indicators: indicators,
-            foundationLevel: 'basic'
-          }
-        })
+      const result = await apiClient.getWarningPreview('indicator_selection', {
+        currentStep: 'indicator_selection',
+        indicators: indicators,
+        foundationLevel: 'basic'
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setWarnings(result.data.warnings || []);
-        setShouldBlock(result.data.shouldBlock || false);
-        setAllowContinue(result.data.allowContinue !== false);
-        setContextualGuidance(result.data.contextualGuidance || '');
-      } else {
-        // Fallback to mock warnings for demo
-        generateMockWarnings(indicators);
-      }
+      setWarnings(result.data.warnings || []);
+      setShouldBlock(result.data.shouldBlock || false);
+      setAllowContinue(result.data.allowContinue !== false);
+      setContextualGuidance(result.data.contextualGuidance || '');
     } catch (error) {
+      console.warn('Warning API not available, using mock warnings:', error);
       // Generate mock warnings for demonstration
       generateMockWarnings(indicators);
     } finally {
@@ -268,12 +253,15 @@ export const IndicatorSelection: React.FC = () => {
   };
 
   // Handle warning actions
-  const handleWarningAction = (warningId: string, action: 'dismissed' | 'acted_upon' | 'ignored') => {
-    // Track warning interaction
-    console.log(`Warning ${warningId} ${action}`);
-    
-    // In real implementation, this would call the API
-    // await fetch('/api/v1/warnings/${warningId}/interact', { ... });
+  const handleWarningAction = async (warningId: string, action: 'dismissed' | 'acted_upon' | 'ignored') => {
+    try {
+      await apiClient.recordWarningInteraction(warningId, action);
+      console.log(`Warning ${warningId} ${action}`);
+    } catch (error) {
+      console.warn('Warning interaction tracking failed:', error);
+      // Still log locally for demo purposes
+      console.log(`Warning ${warningId} ${action} (offline)`);
+    }
   };
 
   // Get indicator type styling
