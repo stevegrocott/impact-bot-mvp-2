@@ -113,4 +113,8 @@ router.use('/knowledge-sharing', knowledgeSharingRoutes);
 import adaptiveIndicatorRecommendationRoutes from './adaptiveIndicatorRecommendationRoutes';
 router.use('/adaptive-recommendations', adaptiveIndicatorRecommendationRoutes);
 
+// Advanced pitfall prevention routes (sector-specific guidance, three-lens validation, smart warnings)
+import advancedPitfallPreventionRoutes from './advancedPitfallPreventionRoutes';
+router.use('/advanced-pitfall-prevention', advancedPitfallPreventionRoutes);
+
 export default router;
