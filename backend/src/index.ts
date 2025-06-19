@@ -23,6 +23,7 @@ import { cacheService } from '@/services/cache';
 import { prisma } from '@/config/database';
 import routes from '@/routes';
 import authRoutes from '@/routes/auth';
+import { devRoutes } from '@/routes/dev';
 
 class Server {
   private app: express.Application;
@@ -113,6 +114,9 @@ class Server {
 
     // Auth routes (no authentication required)
     this.app.use('/api/v1/auth', authRoutes);
+
+    // Development routes (no authentication required, dev only)
+    this.app.use('/api/v1/dev', devRoutes);
 
     // All other API routes with authentication
     this.app.use('/api/v1', authMiddleware, routes);

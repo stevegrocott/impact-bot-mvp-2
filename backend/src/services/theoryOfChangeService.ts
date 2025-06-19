@@ -9,6 +9,7 @@ import { prisma } from '@/config/database';
 import { AppError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
 import { llmService } from './llm';
+import { PDFProcessor } from '@/utils/pdfProcessor';
 
 // Theory of Change structure
 export interface TheoryOfChangeStructure {
@@ -120,10 +121,39 @@ class TheoryOfChangeService {
     try {
       logger.info(`Parsing ${documents.length} documents for organization ${organizationId}`);
 
-      // Combine all document content
-      const combinedContent = documents.map(doc => 
-        `--- ${doc.filename} ---\n${doc.content}`
+      // Process each document to extract text content
+      const processedDocuments = [];
+      
+      for (const doc of documents) {
+        try {
+          // Validate document first
+          PDFProcessor.validateDocument(doc.filename, doc.content, doc.type);
+          
+          // Process document (handles PDF extraction, base64 decoding, etc.)
+          const processed = await PDFProcessor.processDocument(doc.filename, doc.content, doc.type);
+          processedDocuments.push(processed);
+          
+          logger.info(`Successfully processed document: ${doc.filename}`, {
+            originalType: processed.originalType,
+            processingMethod: processed.processingMethod,
+            wordCount: processed.wordCount
+          });
+          
+        } catch (docError) {
+          logger.error(`Failed to process document ${doc.filename}:`, docError);
+          throw new AppError(`Failed to process document ${doc.filename}: ${docError instanceof Error ? docError.message : 'Unknown error'}`, 400);
+        }
+      }
+
+      // Combine all processed document content
+      const combinedContent = processedDocuments.map(doc => 
+        `--- ${doc.filename} (${doc.originalType}, ${doc.wordCount} words) ---\n${doc.content}`
       ).join('\n\n');
+      
+      logger.info(`Combined content from ${processedDocuments.length} documents`, {
+        totalWordCount: processedDocuments.reduce((sum, doc) => sum + doc.wordCount, 0),
+        processingMethods: processedDocuments.map(doc => doc.processingMethod)
+      });
 
       // LLM prompt for theory of change extraction
       const extractionPrompt = `
@@ -182,6 +212,23 @@ class TheoryOfChangeService {
 
     } catch (error) {
       logger.error('Error parsing documents:', error);
+      
+      // Check if this is an LLM service error (likely missing API key)
+      if (error instanceof Error && error.message.includes('LLM service unavailable')) {
+        throw new AppError(
+          'Document analysis service is currently unavailable. Please try the guided conversation approach instead, or contact support.',
+          503
+        );
+      }
+      
+      // Check if this is an authentication error
+      if (error instanceof Error && error.message.includes('Anthropic API error')) {
+        throw new AppError(
+          'Document analysis service configuration error. Please try the guided conversation approach instead, or contact support.',
+          503
+        );
+      }
+      
       throw new AppError('Failed to parse theory of change documents', 500);
     }
   }
@@ -788,8 +835,26 @@ Ready to start measuring your impact effectively!`;
     try {
       // Try to parse JSON response
       const parsed = JSON.parse(content);
+      
+      // Convert AI field names to frontend expected format
+      const aiExtracted = parsed.extracted || {};
+      const extracted: Partial<TheoryOfChangeStructure> = {
+        targetPopulation: aiExtracted.target_population || aiExtracted.targetPopulation,
+        problemDefinition: aiExtracted.problem_definition || aiExtracted.problemDefinition,
+        activities: aiExtracted.activities || [],
+        outputs: aiExtracted.outputs || [],
+        shortTermOutcomes: aiExtracted.short_term_outcomes || aiExtracted.shortTermOutcomes || [],
+        longTermOutcomes: aiExtracted.long_term_outcomes || aiExtracted.longTermOutcomes || [],
+        impacts: Array.isArray(aiExtracted.impacts) ? aiExtracted.impacts : [aiExtracted.impacts].filter(Boolean),
+        assumptions: aiExtracted.assumptions || [],
+        externalFactors: aiExtracted.external_factors || aiExtracted.externalFactors || [],
+        interventionType: aiExtracted.intervention_type || aiExtracted.interventionType,
+        sector: aiExtracted.sector,
+        geographicScope: aiExtracted.geographic_scope || aiExtracted.geographicScope
+      };
+      
       return {
-        extracted: parsed.extracted || {},
+        extracted,
         confidence: parsed.confidence || 0.5,
         gaps: parsed.gaps || [],
         questions: parsed.questions || []
