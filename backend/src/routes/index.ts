@@ -109,4 +109,8 @@ router.use('/cross-org-learning', crossOrgLearningRoutes);
 import knowledgeSharingRoutes from './knowledgeSharing';
 router.use('/knowledge-sharing', knowledgeSharingRoutes);
 
+// Adaptive indicator recommendation routes (ML-powered indicator recommendations based on organizational learning)
+import adaptiveIndicatorRecommendationRoutes from './adaptiveIndicatorRecommendationRoutes';
+router.use('/adaptive-recommendations', adaptiveIndicatorRecommendationRoutes);
+
 export default router;
