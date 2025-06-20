@@ -318,7 +318,7 @@ export const AdvancedFoundationWorkflow: React.FC = () => {
   const performThreeLensValidation = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.validateTheoryOfChange(theoryData);
+      const response = await apiClient.validateTheoryOfChange({ theory: theoryData });
       
       if (response.success && response.data) {
         const validations: ValidationResult[] = [

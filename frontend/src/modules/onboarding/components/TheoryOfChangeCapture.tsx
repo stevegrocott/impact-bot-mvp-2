@@ -74,6 +74,82 @@ export const TheoryOfChangeCapture: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Local foundation readiness calculation
+  const calculateLocalFoundationReadiness = (theory: Partial<TheoryOfChangeStructure>): FoundationReadiness => {
+    const requiredFields = [
+      'targetPopulation', 'problemDefinition', 'activities', 'outputs', 
+      'shortTermOutcomes', 'longTermOutcomes', 'impacts'
+    ];
+    
+    let completedFields = 0;
+    const missingElements: string[] = [];
+    const strengthAreas: string[] = [];
+    
+    requiredFields.forEach(field => {
+      const value = theory[field as keyof TheoryOfChangeStructure];
+      if (value) {
+        if (typeof value === 'string' && value.trim().length > 0) {
+          completedFields++;
+          strengthAreas.push(field.replace(/([A-Z])/g, ' $1').toLowerCase());
+        } else if (Array.isArray(value) && value.length > 0) {
+          completedFields++;
+          strengthAreas.push(field.replace(/([A-Z])/g, ' $1').toLowerCase());
+        } else if (typeof value === 'object' && value !== null) {
+          completedFields++;
+          strengthAreas.push(field.replace(/([A-Z])/g, ' $1').toLowerCase());
+        }
+      } else {
+        missingElements.push(field.replace(/([A-Z])/g, ' $1').toLowerCase());
+      }
+    });
+    
+    const completenessScore = Math.round((completedFields / requiredFields.length) * 100);
+    
+    let readinessLevel: 'insufficient' | 'basic' | 'good' | 'excellent';
+    let recommendations: string[] = [];
+    
+    if (completenessScore < 30) {
+      readinessLevel = 'insufficient';
+      recommendations = [
+        'Start with defining your target population',
+        'Clearly articulate the problem you\'re addressing',
+        'List your key activities and expected outputs'
+      ];
+    } else if (completenessScore < 60) {
+      readinessLevel = 'basic';
+      recommendations = [
+        'Complete the outcomes section (short-term and long-term)',
+        'Define your intended impacts',
+        'Add assumptions and external factors'
+      ];
+    } else if (completenessScore < 85) {
+      readinessLevel = 'good';
+      recommendations = [
+        'Refine your theory of change with more detail',
+        'Consider stakeholder feedback',
+        'Begin decision mapping for key strategic choices'
+      ];
+    } else {
+      readinessLevel = 'excellent';
+      recommendations = [
+        'Your theory of change is comprehensive',
+        'Ready to begin indicator selection',
+        'Consider advanced measurement planning'
+      ];
+    }
+    
+    return {
+      completenessScore,
+      readinessLevel,
+      missingElements,
+      strengthAreas,
+      recommendations,
+      allowsBasicAccess: completenessScore >= 40,
+      allowsIntermediateAccess: completenessScore >= 70,
+      allowsAdvancedAccess: completenessScore >= 85
+    };
+  };
+
   // Pathway options
   const pathwayOptions: PathwayOption[] = [
     {
@@ -301,16 +377,38 @@ export const TheoryOfChangeCapture: React.FC = () => {
     }
   };
 
-  // Assess foundation readiness
+  // Assess foundation readiness based on current theory data
   const assessFoundationReadiness = async () => {
+    if (!theoryData || Object.keys(theoryData).length === 0) {
+      return;
+    }
+    
     setIsProcessing(true);
     
     try {
-      const result = await apiClient.assessFoundationReadiness();
-      setFoundationReadiness(result.data);
+      // Use the validate endpoint to assess the current theory
+      const result = await apiClient.validateTheoryOfChange({ theory: theoryData });
+      
+      // Transform the validation result to match FoundationReadiness interface
+      const readinessData: FoundationReadiness = {
+        completenessScore: result.data.completenessScore || 0,
+        readinessLevel: result.data.readinessLevel || 'insufficient',
+        missingElements: result.data.gaps || [],
+        strengthAreas: result.data.strengthAreas || [],
+        recommendations: result.data.recommendations || [],
+        allowsBasicAccess: result.data.isValid || false,
+        allowsIntermediateAccess: (result.data.completenessScore || 0) >= 70,
+        allowsAdvancedAccess: (result.data.completenessScore || 0) >= 85
+      };
+      
+      setFoundationReadiness(readinessData);
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to assess foundation');
+      console.warn('Foundation assessment failed, using local calculation:', err);
+      
+      // Fallback to local calculation
+      const localAssessment = calculateLocalFoundationReadiness(theoryData);
+      setFoundationReadiness(localAssessment);
     } finally {
       setIsProcessing(false);
     }
@@ -342,7 +440,7 @@ export const TheoryOfChangeCapture: React.FC = () => {
     if (currentStep === 'review' && theoryData && Object.keys(theoryData).length > 0) {
       assessFoundationReadiness();
     }
-  }, [currentStep, theoryData, assessFoundationReadiness]);
+  }, [currentStep, theoryData]);
 
   // Render pathway selection
   if (currentStep === 'pathway') {

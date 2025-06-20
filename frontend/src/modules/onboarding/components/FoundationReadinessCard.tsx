@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -13,7 +14,9 @@ import {
   TrendingUp,
   Lightbulb,
   Shield,
-  Target
+  Target,
+  ExternalLink,
+  ArrowRight
 } from 'lucide-react';
 
 interface FoundationReadiness {
@@ -34,6 +37,112 @@ interface FoundationReadinessCardProps {
 export const FoundationReadinessCard: React.FC<FoundationReadinessCardProps> = ({ 
   readiness 
 }) => {
+  const navigate = useNavigate();
+
+  // Smart navigation based on recommendation content
+  const getRecommendationAction = (recommendation: string) => {
+    const lowerRec = recommendation.toLowerCase();
+    
+    if (lowerRec.includes('theory of change') || lowerRec.includes('target population') || lowerRec.includes('problem')) {
+      return {
+        label: 'Complete Theory of Change',
+        action: () => navigate('/foundation/theory-of-change'),
+        icon: <ArrowRight className="w-4 h-4" />
+      };
+    } else if (lowerRec.includes('decision mapping') || lowerRec.includes('strategic')) {
+      return {
+        label: 'Start Decision Mapping',
+        action: () => navigate('/foundation/decisions'),
+        icon: <ArrowRight className="w-4 h-4" />
+      };
+    } else if (lowerRec.includes('indicator') || lowerRec.includes('measurement')) {
+      return {
+        label: 'Browse Indicators',
+        action: () => navigate('/indicators'),
+        icon: <ArrowRight className="w-4 h-4" />
+      };
+    } else if (lowerRec.includes('stakeholder') || lowerRec.includes('feedback')) {
+      return {
+        label: 'Review Theory',
+        action: () => navigate('/foundation/theory-of-change'),
+        icon: <ArrowRight className="w-4 h-4" />
+      };
+    } else if (lowerRec.includes('comprehensive') || lowerRec.includes('ready')) {
+      return {
+        label: 'Start Measurement Planning',
+        action: () => navigate('/measurement-planning'),
+        icon: <ArrowRight className="w-4 h-4" />
+      };
+    }
+    
+    // Default action
+    return {
+      label: 'Continue Setup',
+      action: () => navigate('/foundation'),
+      icon: <ArrowRight className="w-4 h-4" />
+    };
+  };
+
+  // Get next step actions based on readiness level
+  const getNextStepActions = () => {
+    if (readiness.allowsAdvancedAccess) {
+      return [
+        {
+          label: 'Start Indicator Selection',
+          action: () => navigate('/indicators'),
+          primary: true,
+          description: 'Access the full IRIS+ library and create custom indicators'
+        },
+        {
+          label: 'Advanced Analytics',
+          action: () => navigate('/analytics'),
+          primary: false,
+          description: 'View comprehensive measurement analytics'
+        }
+      ];
+    } else if (readiness.allowsIntermediateAccess) {
+      return [
+        {
+          label: 'Start Measurement Planning',
+          action: () => navigate('/measurement-planning'),
+          primary: true,
+          description: 'Create data collection plans and measurement strategies'
+        },
+        {
+          label: 'Decision Mapping',
+          action: () => navigate('/foundation/decisions'),
+          primary: false,
+          description: 'Map key strategic decisions to improve foundation'
+        }
+      ];
+    } else if (readiness.allowsBasicAccess) {
+      return [
+        {
+          label: 'Browse IRIS+ Indicators',
+          action: () => navigate('/indicators'),
+          primary: true,
+          description: 'Explore measurement indicators and best practices'
+        },
+        {
+          label: 'Complete Theory of Change',
+          action: () => navigate('/foundation/theory-of-change'),
+          primary: false,
+          description: 'Add missing elements to unlock more features'
+        }
+      ];
+    } else {
+      return [
+        {
+          label: 'Complete Foundation Setup',
+          action: () => navigate('/foundation/theory-of-change'),
+          primary: true,
+          description: 'Build your theory of change and unlock platform features'
+        }
+      ];
+    }
+  };
+
+  const nextStepActions = getNextStepActions();
   // Get readiness level styling
   const getReadinessStyle = () => {
     switch (readiness.readinessLevel) {
@@ -273,14 +382,28 @@ export const FoundationReadinessCard: React.FC<FoundationReadinessCardProps> = (
             <Lightbulb className="w-5 h-5 text-blue-600 mr-2" />
             <h4 className="font-medium text-blue-800">Recommendations</h4>
           </div>
-          <ul className="space-y-2">
-            {readiness.recommendations.map((recommendation, index) => (
-              <li key={index} className="text-sm text-blue-700 flex items-start">
-                <span className="mr-2">💡</span>
-                {recommendation}
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-3">
+            {readiness.recommendations.map((recommendation, index) => {
+              const action = getRecommendationAction(recommendation);
+              return (
+                <div key={index} className="flex items-start justify-between p-3 bg-white rounded-lg border border-blue-100">
+                  <div className="flex-1">
+                    <div className="flex items-start">
+                      <span className="mr-2 mt-0.5">💡</span>
+                      <span className="text-sm text-blue-700">{recommendation}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={action.action}
+                    className="ml-3 flex items-center px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex-shrink-0"
+                  >
+                    {action.label}
+                    {action.icon && <span className="ml-1">{action.icon}</span>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -288,48 +411,50 @@ export const FoundationReadinessCard: React.FC<FoundationReadinessCardProps> = (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <h4 className="font-medium text-gray-900 mb-3">Next Steps</h4>
         
-        {readiness.allowsAdvancedAccess ? (
-          <div className="space-y-2">
+        <div className="space-y-3">
+          {readiness.allowsAdvancedAccess && (
             <p className="text-sm text-gray-700">
               🎉 Excellent! You have full access to all platform features.
             </p>
-            <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              → Proceed to Indicator Selection
-            </button>
-          </div>
-        ) : readiness.allowsIntermediateAccess ? (
-          <div className="space-y-2">
+          )}
+          {readiness.allowsIntermediateAccess && !readiness.allowsAdvancedAccess && (
             <p className="text-sm text-gray-700">
               You can start with measurement planning. Complete missing elements to unlock advanced features.
             </p>
-            <div className="flex space-x-4">
-              <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                → Start Measurement Planning
-              </button>
-              <button className="text-sm text-gray-600 hover:text-gray-800 font-medium">
-                → Improve Foundation
-              </button>
-            </div>
-          </div>
-        ) : readiness.allowsBasicAccess ? (
-          <div className="space-y-2">
+          )}
+          {readiness.allowsBasicAccess && !readiness.allowsIntermediateAccess && (
             <p className="text-sm text-gray-700">
               You can browse indicators and guides. Complete your foundation to unlock measurement tools.
             </p>
-            <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              → Complete Foundation Elements
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
+          )}
+          {!readiness.allowsBasicAccess && (
             <p className="text-sm text-gray-700">
               Complete the missing foundation elements to access measurement features.
             </p>
-            <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-              → Return to Foundation Setup
-            </button>
+          )}
+          
+          <div className="space-y-2">
+            {nextStepActions.map((stepAction, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">{stepAction.label}</div>
+                  <div className="text-xs text-gray-600 mt-1">{stepAction.description}</div>
+                </div>
+                <button
+                  onClick={stepAction.action}
+                  className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors ml-3 ${
+                    stepAction.primary
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {stepAction.label}
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

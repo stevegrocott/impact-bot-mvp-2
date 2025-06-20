@@ -152,16 +152,88 @@ export const TheoryOfChangePreview: React.FC<TheoryOfChangePreviewProps> = ({
           {data.map((item, index) => (
             <li key={index} className="flex items-start">
               <span className="text-gray-400 mr-2">•</span>
-              <span className="text-gray-700">{item}</span>
+              <span className="text-gray-700">
+                {typeof item === 'string' ? item : JSON.stringify(item)}
+              </span>
             </li>
           ))}
         </ul>
       );
     }
 
+    // Handle case where data might be an object instead of a string
+    if (typeof data === 'object' && data !== null) {
+      // If it's an object with main/details or similar structure, render appropriately
+      if ('main' in data && 'details' in data) {
+        return (
+          <div className="space-y-2">
+            <p className="text-gray-700 font-medium">{(data as any).main}</p>
+            <p className="text-gray-600 text-sm">{(data as any).details}</p>
+          </div>
+        );
+      }
+
+      // Handle main/specifics structure (AI extracted data format)
+      if ('main' in data && 'specifics' in data) {
+        const specifics = (data as any).specifics;
+        return (
+          <div className="space-y-3">
+            <p className="text-gray-700 font-medium leading-relaxed">{(data as any).main}</p>
+            {Array.isArray(specifics) && specifics.length > 0 && (
+              <div className="ml-4">
+                <ul className="space-y-1">
+                  {specifics.map((item: string, index: number) => (
+                    <li key={index} className="flex items-start">
+                      <span className="text-blue-400 mr-2 mt-1">•</span>
+                      <span className="text-gray-600 text-sm">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Handle direct outputs format
+      if ('direct' in data) {
+        const directItems = (data as any).direct;
+        return (
+          <div className="space-y-2">
+            {Array.isArray(directItems) && directItems.length > 0 && (
+              <ul className="space-y-2">
+                {directItems.map((item: string, index: number) => (
+                  <li key={index} className="flex items-start">
+                    <span className="text-green-500 mr-2 mt-1">•</span>
+                    <span className="text-gray-700">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      }
+      
+      if ('primary' in data && 'secondary' in data) {
+        return (
+          <div className="space-y-2">
+            <p className="text-gray-700 font-medium">{(data as any).primary}</p>
+            <p className="text-gray-600 text-sm">{(data as any).secondary}</p>
+          </div>
+        );
+      }
+      
+      // For any other object, convert to JSON string as fallback
+      return (
+        <p className="text-gray-700 leading-relaxed">
+          {JSON.stringify(data)}
+        </p>
+      );
+    }
+
     return (
       <p className="text-gray-700 leading-relaxed">
-        {data as string}
+        {String(data)}
       </p>
     );
   };

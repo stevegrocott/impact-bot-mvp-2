@@ -323,12 +323,6 @@ class ApiClient {
     });
   }
 
-  async assessFoundationReadiness(): Promise<ApiResponse<any>> {
-    return this.request({
-      method: 'GET',
-      url: '/foundation/readiness',
-    });
-  }
 
   async checkFeatureAccess(feature: string): Promise<ApiResponse<any>> {
     return this.request({
@@ -505,11 +499,18 @@ class ApiClient {
     });
   }
 
-  async validateTheoryOfChange(theory: any): Promise<ApiResponse<any>> {
+  async validateTheoryOfChange(data: { theory: any }): Promise<ApiResponse<any>> {
     return this.request({
       method: 'POST',
       url: '/theory-of-change/validate',
-      data: { theory },
+      data,
+    });
+  }
+
+  async assessFoundationReadiness(): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/theory-of-change/foundation-readiness',
     });
   }
 
