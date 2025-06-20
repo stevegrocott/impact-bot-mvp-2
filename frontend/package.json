@@ -44,7 +44,8 @@
     "test:deps": "npm run test -- --testPathPattern=dependencyTests",
     "prestart": "npm run validate:all",
     "prebuild": "npm run validate:all",
-    "precommit": "npm run lint:check && npm run type-check && npm run validate:all"
+    "precommit": "npm run lint:check && npm run type-check && npm run validate:all",
+    "update-docs": "node ../scripts/update-planning-docs.js"
   },
   "browserslist": {
     "production": [
