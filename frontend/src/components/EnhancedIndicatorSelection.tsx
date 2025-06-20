@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -255,6 +256,7 @@ export const EnhancedIndicatorSelection: React.FC<EnhancedIndicatorSelectionProp
   allowCustomIndicators = true,
   className = ""
 }) => {
+  const navigate = useNavigate();
   // State
   const [selectedIndicators, setSelectedIndicators] = useState<EnhancedIrisIndicator[]>(initialIndicators);
   const [searchQuery, setSearchQuery] = useState('');
@@ -715,7 +717,7 @@ export const EnhancedIndicatorSelection: React.FC<EnhancedIndicatorSelectionProp
               allowContinue={true}
               contextualGuidance="Your selection looks balanced. Consider the AI recommendations above for optimization."
               onWarningAction={(id, action) => console.log('Warning action:', id, action)}
-              onContinue={() => console.log('Continue with selection')}
+              onContinue={() => navigate('/measurement-planning')}
             />
           )}
 
@@ -1115,7 +1117,10 @@ export const EnhancedIndicatorSelection: React.FC<EnhancedIndicatorSelectionProp
               >
                 Analyze Portfolio
               </button>
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 flex items-center">
+              <button 
+                onClick={() => navigate('/measurement-planning')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 flex items-center"
+              >
                 <Sparkles className="w-4 h-4 mr-2" />
                 Proceed to Planning
               </button>

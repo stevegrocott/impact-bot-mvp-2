@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Edit, 
@@ -27,6 +28,7 @@ export const TheoryOfChangeReview: React.FC<TheoryOfChangeReviewProps> = ({
   onEdit,
   onBack,
 }) => {
+  const navigate = useNavigate();
 
   if (!theory) {
     return (
@@ -317,10 +319,7 @@ export const TheoryOfChangeReview: React.FC<TheoryOfChangeReviewProps> = ({
               {readiness && readiness.allowsBasicAccess && (
                 <button
                   className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  onClick={() => {
-                    // Navigate to next phase (indicator selection)
-                    console.log('Navigate to indicator selection');
-                  }}
+                  onClick={() => navigate('/indicators')}
                 >
                   Continue to Indicator Selection
                 </button>

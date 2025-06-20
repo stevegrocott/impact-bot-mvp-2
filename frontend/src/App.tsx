@@ -227,6 +227,56 @@ const AppRoutes: React.FC = () => {
         }
       />
       
+      {/* Measurement Planning route */}
+      <Route
+        path="/measurement-planning"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <div className="max-w-4xl mx-auto p-6">
+                <h1 className="text-3xl font-bold text-gray-900 mb-6">Measurement Planning</h1>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Your Data Collection Plan</h2>
+                  <p className="text-gray-600 mb-4">
+                    Based on your selected indicators, we'll help you plan how to collect, analyze, and report your impact data.
+                  </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-800">
+                      🚧 This feature is coming soon! Your indicator selections have been saved and will be used to generate personalized measurement plans.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Analytics route */}
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <div className="max-w-4xl mx-auto p-6">
+                <h1 className="text-3xl font-bold text-gray-900 mb-6">Analytics Dashboard</h1>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Advanced Impact Analytics</h2>
+                  <p className="text-gray-600 mb-4">
+                    Comprehensive analytics dashboard with data visualization, trend analysis, and impact reporting.
+                  </p>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-green-800">
+                      🎯 This advanced feature is available with your current foundation level! Coming soon with real-time data insights and automated reporting.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
       {/* Reports module routes */}
       <Route
         path="/reports"

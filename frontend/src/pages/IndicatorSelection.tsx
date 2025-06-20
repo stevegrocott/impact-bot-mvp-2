@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -100,6 +101,7 @@ const mockIndicators: IrisIndicator[] = [
 
 // Component
 export const IndicatorSelection: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndicators, setSelectedIndicators] = useState<IrisIndicator[]>([]);
   const [warnings, setWarnings] = useState<RealTimeWarning[]>([]);
@@ -363,7 +365,7 @@ export const IndicatorSelection: React.FC = () => {
           allowContinue={allowContinue}
           contextualGuidance={contextualGuidance}
           onWarningAction={handleWarningAction}
-          onContinue={() => console.log('Continue with selection')}
+          onContinue={() => navigate('/measurement-planning')}
         />
       )}
 
@@ -465,7 +467,10 @@ export const IndicatorSelection: React.FC = () => {
                 Review your selection and proceed to measurement planning.
               </p>
             </div>
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700">
+            <button 
+              onClick={() => navigate('/measurement-planning')}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700"
+            >
               Proceed to Planning
             </button>
           </div>
