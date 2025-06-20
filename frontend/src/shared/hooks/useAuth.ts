@@ -17,7 +17,7 @@ export const useAuth = () => {
       
       if (response.success) {
         // Store token in localStorage
-        localStorage.setItem('auth_token', response.data.token);
+        localStorage.setItem('auth_token', response.data?.token);
         
         dispatch(loginSuccess(response.data));
         return { success: true };
@@ -53,10 +53,10 @@ export const useAuth = () => {
       const response = await apiClient.getCurrentUser();
       if (response.success) {
         dispatch(loginSuccess({
-          user: response.data.user,
-          organization: response.data.organization,
+          user: response.data?.user,
+          organization: response.data?.organization,
           token,
-          permissions: response.data.permissions,
+          permissions: response.data?.permissions || [],
         }));
         return { isAuthenticated: true };
       } else {
@@ -85,7 +85,7 @@ export const useAuth = () => {
   const getUserComplexityPreference = useCallback((): number => {
     if (!user?.preferences) return 2; // Default to intermediate
     
-    const pref = user.preferences.complexity_preference;
+    const pref = user?.preferences?.complexity_preference;
     if (typeof pref === 'string') {
       const mapping = { basic: 1, intermediate: 2, advanced: 3 };
       return mapping[pref as keyof typeof mapping] || 2;
@@ -97,11 +97,11 @@ export const useAuth = () => {
     if (!organization) return {};
     
     return {
-      id: organization.id,
-      name: organization.name,
-      industry: organization.industry,
-      sizeCategory: organization.sizeCategory,
-      focusAreas: organization.focusAreas || [],
+      id: organization?.id,
+      name: organization?.name,
+      industry: organization?.industry,
+      sizeCategory: organization?.sizeCategory,
+      focusAreas: organization?.focusAreas || [],
       complexity_preference: getUserComplexityPreference(),
     };
   }, [organization, getUserComplexityPreference]);

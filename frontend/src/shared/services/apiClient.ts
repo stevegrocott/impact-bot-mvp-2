@@ -534,6 +534,96 @@ class ApiClient {
       data: { action },
     });
   }
+
+  // AI Personality endpoints
+  async getAvailablePersonalities(): Promise<ApiResponse<any[]>> {
+    return this.request({
+      method: 'GET',
+      url: '/ai-personalities/personalities',
+    });
+  }
+
+  async selectPersonalityForContext(context: {
+    userRole: string;
+    currentPhase: string;
+    foundationReadiness: number;
+    conversationHistory?: any[];
+    currentTask?: string;
+    urgencyLevel?: 'low' | 'medium' | 'high';
+    complexityLevel?: 'beginner' | 'intermediate' | 'advanced';
+    previousInteractions?: any[];
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/ai-personalities/select-personality',
+      data: context,
+    });
+  }
+
+  async generatePersonalityResponse(
+    personalityId: string,
+    userMessage: string,
+    context: any
+  ): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/ai-personalities/generate-response',
+      data: { personalityId, userMessage, context },
+    });
+  }
+
+  async getPersonalityById(personalityId: string): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: `/ai-personalities/personalities/${personalityId}`,
+    });
+  }
+
+  async getPersonalityRecommendations(params?: {
+    phase?: string;
+    foundationReadiness?: number;
+    taskContext?: string;
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (params?.phase) queryParams.append('phase', params.phase);
+    if (params?.foundationReadiness !== undefined) queryParams.append('foundationReadiness', params.foundationReadiness.toString());
+    if (params?.taskContext) queryParams.append('taskContext', params.taskContext);
+
+    return this.request({
+      method: 'GET',
+      url: `/ai-personalities/recommendations${queryParams.toString() ? `?${  queryParams.toString()}` : ''}`,
+    });
+  }
+
+  async getPersonalityAnalytics(): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'GET',
+      url: '/ai-personalities/analytics',
+    });
+  }
+
+  async recordPersonalityFeedback(data: {
+    personalityId: string;
+    interactionId: string;
+    rating: number;
+    feedback?: string;
+    effectiveness?: number;
+    context?: any;
+  }): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/ai-personalities/feedback',
+      data,
+    });
+  }
+
+  async testPersonalityResponses(testScenarios: any[]): Promise<ApiResponse<any>> {
+    return this.request({
+      method: 'POST',
+      url: '/ai-personalities/test-responses',
+      data: { testScenarios },
+    });
+  }
 }
 
 // Export singleton instance

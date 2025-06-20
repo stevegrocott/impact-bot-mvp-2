@@ -11,7 +11,9 @@ import {
   Plus,
   ArrowRight,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Shield,
+  Sparkles
 } from 'lucide-react';
 import { RootState } from '../shared/store/store';
 import { useAuth } from '../shared/hooks/useAuth';
@@ -296,6 +298,42 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Featured Demo Section */}
+      <div className="mt-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
+        <div className="flex items-start space-x-4">
+          <div className="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+            <Shield className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center mb-2">
+              <h3 className="font-semibold text-white text-lg">
+                New: Advanced Foundation Workflow
+              </h3>
+              <span className="ml-3 px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium flex items-center">
+                <Sparkles className="w-3 h-3 mr-1" />
+                Featured Demo
+              </span>
+            </div>
+            <p className="text-blue-100 mb-4">
+              Experience our revolutionary foundation-first methodology with AI-powered pitfall prevention. 
+              Build an unshakeable measurement foundation with sector-specific guidance and three-lens validation.
+            </p>
+            <div className="flex items-center space-x-4">
+              <Link
+                to="/advanced-foundation-demo"
+                className="inline-flex items-center px-4 py-2 bg-white text-blue-600 text-sm font-medium rounded-md hover:bg-blue-50 transition-colors"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Try Advanced Foundation
+              </Link>
+              <span className="text-sm text-blue-200">
+                Prevents 80% of measurement failures
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Getting Started Section (for new users) */}
       {Object.keys(conversations).length === 0 && (
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
@@ -305,7 +343,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-blue-900 mb-2">
-                👋 Get started with Impact Bot
+                Get started with Impact Bot
               </h3>
               <p className="text-blue-800 mb-4">
                 New to impact measurement? Start a conversation with our AI assistant to discover 

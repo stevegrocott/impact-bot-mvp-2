@@ -18,9 +18,98 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <title>Impact Bot - IRIS+ Platform</title>
+    
+    <!-- CRITICAL: Load error capture system before anything else -->
+    <script>
+      // Immediate error capture - inline for maximum early loading
+      window.__EARLY_ERRORS__ = [];
+      window.__ERROR_BREADCRUMBS__ = [];
+      
+      const timestamp = () => new Date().toISOString();
+      
+      // Override console.error immediately
+      const originalConsoleError = console.error;
+      console.error = function(...args) {
+        window.__EARLY_ERRORS__.push({
+          type: 'console.error',
+          timestamp: timestamp(),
+          args: args.map(arg => String(arg)),
+          stack: new Error().stack
+        });
+        originalConsoleError.apply(console, args);
+      };
+      
+      // Global error handler
+      window.addEventListener('error', function(event) {
+        const errorInfo = {
+          type: 'global_error',
+          timestamp: timestamp(),
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          error: event.error ? {
+            name: event.error.name,
+            message: event.error.message,
+            stack: event.error.stack
+          } : null
+        };
+        
+        window.__EARLY_ERRORS__.push(errorInfo);
+        
+        console.group('🚨 CRITICAL ERROR DETECTED AT:' + timestamp());
+        console.error('Error:', errorInfo);
+        console.error('All errors so far:', window.__EARLY_ERRORS__);
+        console.groupEnd();
+        
+        // Show immediate feedback
+        if (document.getElementById('error-display')) {
+          document.getElementById('error-display').innerHTML = `
+            <div style="background: #fee; border: 2px solid #f87171; padding: 20px; margin: 10px; border-radius: 8px;">
+              <h3>🚨 Error Detected: ${event.message}</h3>
+              <p><strong>File:</strong> ${event.filename}:${event.lineno}:${event.colno}</p>
+              <p><strong>Time:</strong> ${timestamp()}</p>
+              <details>
+                <summary>Stack Trace</summary>
+                <pre style="font-size: 10px; overflow: auto;">${errorInfo.error?.stack || 'No stack available'}</pre>
+              </details>
+            </div>
+          `;
+        }
+      }, true);
+      
+      // Promise rejection handler
+      window.addEventListener('unhandledrejection', function(event) {
+        const errorInfo = {
+          type: 'unhandled_rejection',
+          timestamp: timestamp(),
+          reason: String(event.reason),
+          stack: event.reason?.stack || 'No stack available'
+        };
+        
+        window.__EARLY_ERRORS__.push(errorInfo);
+        console.group('🚨 UNHANDLED PROMISE REJECTION');
+        console.error('Rejection:', errorInfo);
+        console.groupEnd();
+      });
+      
+      window.showAllErrors = function() {
+        console.group('🔍 ALL CAPTURED ERRORS');
+        console.log('Errors:', window.__EARLY_ERRORS__);
+        console.log('Count:', window.__EARLY_ERRORS__.length);
+        console.groupEnd();
+        return window.__EARLY_ERRORS__;
+      };
+      
+      console.log('🛡️ Immediate error capture loaded');
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    
+    <!-- Error display area for immediate feedback -->
+    <div id="error-display" style="position: fixed; top: 0; left: 0; right: 0; z-index: 10000; max-height: 40vh; overflow-y: auto;"></div>
+    
     <div id="root"></div>
     <!--
       This HTML file is a template.

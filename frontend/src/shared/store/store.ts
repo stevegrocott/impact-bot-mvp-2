@@ -3,6 +3,7 @@ import authSlice from './authSlice';
 import conversationSlice from './conversationSlice';
 import uiSlice from './uiSlice';
 import cacheSlice from './cacheSlice';
+import aiPersonalitySlice from './aiPersonalitySlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     conversation: conversationSlice,
     ui: uiSlice,
     cache: cacheSlice,
+    aiPersonality: aiPersonalitySlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -246,7 +246,7 @@ const FoundationReadinessWidget: React.FC<FoundationReadinessWidgetProps> = ({
               {readiness.overall}%
             </div>
             <div className="text-sm font-medium text-gray-700">
-              {readiness.readinessLevel.charAt(0).toUpperCase() + readiness.readinessLevel.slice(1)} Level
+              {readiness?.readinessLevel?.charAt(0)?.toUpperCase() + readiness?.readinessLevel?.slice(1)} Level
             </div>
             <div className="text-xs text-gray-600">
               Confidence: {readiness.confidence}%
@@ -279,9 +279,9 @@ const FoundationReadinessWidget: React.FC<FoundationReadinessWidgetProps> = ({
                   <div className="font-medium text-gray-900 capitalize">
                     {key.replace(/([A-Z])/g, ' $1').trim()}
                   </div>
-                  {showDetails && category.blockers && category.blockers.length > 0 && (
+                  {showDetails && category.blockers && category.blockers?.length > 0 && (
                     <div className="text-xs text-gray-600 mt-1">
-                      Blockers: {category.blockers.join(', ')}
+                      Blockers: {category.blockers?.join(', ')}
                     </div>
                   )}
                 </div>
@@ -301,7 +301,7 @@ const FoundationReadinessWidget: React.FC<FoundationReadinessWidgetProps> = ({
           Priority Actions
         </h4>
         
-        {readiness.nextActions.slice(0, 3).map((action, index) => (
+        {readiness.nextActions?.slice(0, 3).map((action, index) => (
           <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <div className="flex-1">
               <div className="font-medium text-gray-900 mb-1">{action.action}</div>
@@ -329,12 +329,12 @@ const FoundationReadinessWidget: React.FC<FoundationReadinessWidgetProps> = ({
           </div>
         ))}
 
-        {readiness.nextActions.length > 3 && (
+        {readiness.nextActions?.length > 3 && (
           <button
             onClick={() => setShowDetails(!showDetails)}
             className="w-full text-sm text-blue-600 hover:text-blue-800 transition-colors py-2"
           >
-            View {readiness.nextActions.length - 3} more actions
+            View {readiness.nextActions?.length - 3} more actions
           </button>
         )}
       </div>

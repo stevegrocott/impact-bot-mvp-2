@@ -62,7 +62,7 @@ export const FoundationDashboard: React.FC = () => {
           setFoundationStatus(statusResponse.data);
 
           // Load readiness assessment if foundation exists
-          if (statusResponse.data.hasTheoryOfChange) {
+          if (statusResponse?.data?.hasTheoryOfChange) {
             try {
               const readinessResponse = await apiClient.request({
                 method: 'GET',
@@ -227,6 +227,39 @@ export const FoundationDashboard: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <span className="text-lg">💬</span>
                   <span className="font-medium text-gray-900 text-sm">AI Guide Chat</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
+              </button>
+              
+              <button
+                onClick={() => navigate('/benchmarking')}
+                disabled={!foundationStatus?.allowsBasicAccess}
+                className={`w-full text-left p-3 rounded-lg border transition-colors flex items-center justify-between group ${
+                  foundationStatus?.allowsBasicAccess 
+                    ? 'bg-gray-50 hover:bg-gray-100 border-gray-200' 
+                    : 'bg-gray-50 border-gray-200 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">📊</span>
+                  <span className={`font-medium text-sm ${
+                    foundationStatus?.allowsBasicAccess ? 'text-gray-900' : 'text-gray-500'
+                  }`}>
+                    Peer Benchmarking
+                  </span>
+                </div>
+                <ArrowRight className={`w-4 h-4 ${
+                  foundationStatus?.allowsBasicAccess ? 'text-gray-600 group-hover:translate-x-1' : 'text-gray-400'
+                } transition-transform`} />
+              </button>
+              
+              <button
+                onClick={() => navigate('/knowledge')}
+                className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors flex items-center justify-between group"
+              >
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">📚</span>
+                  <span className="font-medium text-gray-900 text-sm">Knowledge Hub</span>
                 </div>
                 <ArrowRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
               </button>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+        .error { background: #fee; border-color: #f87171; }
+        .success { background: #efe; border-color: #22c55e; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Error Detection Test Page</h1>
+    <p>This page tests error detection without React complexity.</p>
+    
+    <div class="test-section">
+        <h3>Error Capture Status</h3>
+        <div id="capture-status">Checking...</div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Manual Error Tests</h3>
+        <button onclick="testReferenceError()">Test Reference Error</button>
+        <button onclick="testTypeError()">Test Type Error</button>
+        <button onclick="testPromiseRejection()">Test Promise Rejection</button>
+        <button onclick="testAsyncError()">Test Async Error</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Module Import Tests</h3>
+        <button onclick="testModuleImport()">Test Dynamic Import</button>
+        <button onclick="testNonExistentModule()">Test Non-existent Module</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Captured Errors</h3>
+        <button onclick="showAllErrors()">Show All Errors</button>
+        <button onclick="clearErrors()">Clear Errors</button>
+        <div id="error-list"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>React App Test</h3>
+        <button onclick="testReactApp()">Load React App in iframe</button>
+        <div id="react-test"></div>
+    </div>
+
+    <script>
+        // Test functions
+        function testReferenceError() {
+            console.log('Testing reference error...');
+            try {
+                nonExistentVariable.someProperty;
+            } catch (e) {
+                console.error('Caught reference error:', e);
+            }
+        }
+        
+        function testTypeError() {
+            console.log('Testing type error...');
+            try {
+                null.someMethod();
+            } catch (e) {
+                console.error('Caught type error:', e);
+            }
+        }
+        
+        function testPromiseRejection() {
+            console.log('Testing promise rejection...');
+            Promise.reject(new Error('Test promise rejection'));
+        }
+        
+        function testAsyncError() {
+            console.log('Testing async error...');
+            setTimeout(() => {
+                throw new Error('Test async error');
+            }, 100);
+        }
+        
+        function testModuleImport() {
+            console.log('Testing dynamic import...');
+            import('./non-existent-module.js').catch(e => {
+                console.error('Import failed:', e);
+            });
+        }
+        
+        function testNonExistentModule() {
+            console.log('Testing non-existent module...');
+            const script = document.createElement('script');
+            script.src = '/non-existent-script.js';
+            script.onerror = (e) => console.error('Script load failed:', e);
+            document.head.appendChild(script);
+        }
+        
+        function showAllErrors() {
+            if (window.showAllErrors) {
+                const errors = window.showAllErrors();
+                document.getElementById('error-list').innerHTML = `
+                    <h4>Total Errors: ${errors.length}</h4>
+                    <pre>${JSON.stringify(errors, null, 2)}</pre>
+                `;
+            } else {
+                document.getElementById('error-list').innerHTML = '<p>Error capture system not available</p>';
+            }
+        }
+        
+        function clearErrors() {
+            if (window.clearAllErrors) {
+                window.clearAllErrors();
+                document.getElementById('error-list').innerHTML = '<p>Errors cleared</p>';
+            }
+        }
+        
+        function testReactApp() {
+            document.getElementById('react-test').innerHTML = `
+                <iframe 
+                    src="/" 
+                    width="100%" 
+                    height="400px" 
+                    style="border: 1px solid #ccc;"
+                    onload="console.log('React app iframe loaded')"
+                    onerror="console.error('React app iframe failed to load')"
+                ></iframe>
+            `;
+        }
+        
+        // Check error capture status
+        function checkCaptureStatus() {
+            const statusDiv = document.getElementById('capture-status');
+            if (window.__EARLY_ERRORS__ !== undefined) {
+                statusDiv.innerHTML = `
+                    <div class="success">
+                        ✅ Error capture is active<br>
+                        Errors captured: ${window.__EARLY_ERRORS__.length}<br>
+                        Functions available: ${typeof window.showAllErrors === 'function' ? 'Yes' : 'No'}
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Error capture not detected
+                    </div>
+                `;
+            }
+        }
+        
+        // Auto-run status check
+        setTimeout(checkCaptureStatus, 100);
+        
+        // Test error in global scope
+        setTimeout(() => {
+            console.log('🧪 Triggering test error in 2 seconds...');
+            setTimeout(() => {
+                throw new Error('Test error from error-test.html');
+            }, 2000);
+        }, 1000);
+        
+        console.log('🧪 Error test page loaded');
+    </script>
+</body>
+</html>

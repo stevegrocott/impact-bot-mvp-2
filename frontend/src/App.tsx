@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Provider } from 'react-redux';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import DependencyErrorBoundary from './components/DependencyErrorBoundary';
 import { store } from './shared/store/store';
 import { useAuth } from './shared/hooks/useAuth';
 import AppLayout from './layouts/AppLayout';
@@ -14,6 +15,12 @@ import VisualDashboard from './pages/VisualDashboard';
 import { TheoryOfChangeCapture } from './modules/onboarding/components/TheoryOfChangeCapture';
 import { LoginPage } from './components/LoginPage';
 import { OrganizationDashboard } from './components/OrganizationDashboard';
+import AIPersonalityDemo from './pages/AIPersonalityDemo';
+import AdvancedFoundationDemo from './pages/AdvancedFoundationDemo';
+import { errorCapture, ErrorBoundaryWithCapture, ErrorReporter } from './utils/errorCapture';
+import ComponentTestSuite from './debug/component-tests/ComponentTestSuite';
+import PeerBenchmarkingDashboard from './components/PeerBenchmarkingDashboard';
+import KnowledgeSharingHub from './components/KnowledgeSharingHub';
 import './App.css';
 
 // Auth wrapper component
@@ -21,7 +28,14 @@ const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { checkAuth } = useAuth();
 
   useEffect(() => {
-    checkAuth();
+    // Add breadcrumb for auth initialization
+    errorCapture.addBreadcrumb('auth', 'Auth initialization started');
+    
+    checkAuth().then(() => {
+      errorCapture.addBreadcrumb('auth', 'Auth check completed successfully');
+    }).catch((error) => {
+      errorCapture.captureError(error, { component: 'AuthWrapper', action: 'checkAuth' });
+    });
   }, [checkAuth]);
 
   return <>{children}</>;
@@ -181,6 +195,26 @@ const AppRoutes: React.FC = () => {
         }
       />
 
+      {/* AI Personality Demo route */}
+      <Route
+        path="/ai-personality-demo"
+        element={
+          <ProtectedRoute>
+            <AIPersonalityDemo />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Advanced Foundation Demo route */}
+      <Route
+        path="/advanced-foundation-demo"
+        element={
+          <ProtectedRoute>
+            <AdvancedFoundationDemo />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Indicators module routes */}
       <Route
         path="/indicators"
@@ -205,6 +239,30 @@ const AppRoutes: React.FC = () => {
         }
       />
       
+      {/* Peer Benchmarking Dashboard */}
+      <Route
+        path="/benchmarking"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <PeerBenchmarkingDashboard />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Knowledge Sharing Hub */}
+      <Route
+        path="/knowledge"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <KnowledgeSharingHub />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      
       {/* Approvals module routes */}
       <Route
         path="/approvals"
@@ -217,6 +275,16 @@ const AppRoutes: React.FC = () => {
         }
       />
       
+
+      {/* Component Test Suite - Debug Route */}
+      <Route path="/debug/component-test" element={<ComponentTestSuite />} />
+      {/* Debug route for testing */}
+      <Route path="/debug" element={
+        <div>
+          {React.createElement(require('./debug/homepage-test').default)}
+        </div>
+      } />
+      
       {/* Catch all - redirect to dashboard */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -225,16 +293,55 @@ const AppRoutes: React.FC = () => {
 
 // Main App component
 const App: React.FC = () => {
+  // Initialize error capture on app startup
+  useEffect(() => {
+    errorCapture.addBreadcrumb('app', 'Application started');
+    
+    // Test critical components immediately
+    setTimeout(() => {
+      try {
+        const results = errorCapture.testCriticalComponents();
+        console.log('🔍 Critical components test results:', results);
+      } catch (error) {
+        errorCapture.captureError(error as Error, { component: 'App', action: 'testCriticalComponents' });
+      }
+    }, 1000);
+  }, []);
+
   return (
-    <Provider store={store}>
-      <Router>
-        <div className="App">
-          <AuthWrapper>
-            <AppRoutes />
-          </AuthWrapper>
-        </div>
-      </Router>
-    </Provider>
+    <ErrorBoundaryWithCapture fallback={
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <h1>🚨 Application Error Detected</h1>
+        <p>A critical error occurred. Please check the console for detailed information.</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          style={{ 
+            padding: '10px 20px', 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}
+        >
+          Reload Application
+        </button>
+      </div>
+    }>
+      <DependencyErrorBoundary>
+        <Provider store={store}>
+          <Router>
+            <div className="App">
+              <AuthWrapper>
+                <AppRoutes />
+              </AuthWrapper>
+              <ErrorReporter />
+            </div>
+          </Router>
+        </Provider>
+      </DependencyErrorBoundary>
+    </ErrorBoundaryWithCapture>
   );
 };
 

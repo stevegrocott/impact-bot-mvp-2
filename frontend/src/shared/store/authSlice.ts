@@ -7,6 +7,14 @@ interface User {
   lastName?: string;
   jobTitle?: string;
   preferences: Record<string, any>;
+  organizationId?: string;
+  currentOrganization?: {
+    id: string;
+    name: string;
+    role?: {
+      name: string;
+    };
+  };
 }
 
 interface Organization {
@@ -52,10 +60,10 @@ const authSlice = createSlice({
       token: string;
       permissions: string[];
     }>) => {
-      state.user = action.payload.user;
-      state.organization = action.payload.organization;
-      state.token = action.payload.token;
-      state.permissions = action.payload.permissions;
+      state.user = action.payload?.user;
+      state.organization = action.payload?.organization;
+      state.token = action.payload?.token;
+      state.permissions = action.payload?.permissions || [];
       state.isAuthenticated = true;
       state.isLoading = false;
       state.error = null;
@@ -75,7 +83,7 @@ const authSlice = createSlice({
     },
     updateUserPreferences: (state, action: PayloadAction<Record<string, any>>) => {
       if (state.user) {
-        state.user.preferences = { ...state.user.preferences, ...action.payload };
+        state.user.preferences = { ...state.user?.preferences, ...action.payload };
       }
     },
   },

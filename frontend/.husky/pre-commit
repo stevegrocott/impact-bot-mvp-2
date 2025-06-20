@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run all validation checks before commit
+echo "🔍 Running pre-commit validation..."
+
+# Type checking
+echo "📋 Type checking..."
+npm run type-check || exit 1
+
+# Linting
+echo "🧹 Linting code..."
+npm run lint:check || exit 1
+
+# Dependency validation
+echo "📦 Validating dependencies..."
+npm run validate:deps || exit 1
+
+# Import validation
+echo "🔗 Validating imports..."
+npm run validate:imports || exit 1
+
+# Run relevant tests
+echo "🧪 Running dependency tests..."
+npm run test:deps -- --watchAll=false || exit 1
+
+echo "✅ All pre-commit checks passed!"

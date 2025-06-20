@@ -141,7 +141,7 @@ export const IndicatorSelection: React.FC = () => {
     try {
       const result = await apiClient.getWarningPreview('indicator_selection', {
         currentStep: 'indicator_selection',
-        indicators: indicators,
+        indicators,
         foundationLevel: 'basic'
       });
 

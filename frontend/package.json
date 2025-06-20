@@ -14,6 +14,7 @@
     "@types/react-dom": "^19.1.6",
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.10.0",
+    "framer-motion": "^12.18.1",
     "lucide-react": "^0.516.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -25,16 +26,24 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "npm run validate:all && react-scripts start",
+    "build": "npm run validate:all && react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "eject": "react-scripts eject",
+    "validate:deps": "node src/scripts/validate-dependencies.js",
+    "validate:imports": "node src/scripts/validate-imports.js",
+    "validate:runtime": "node src/scripts/validate-runtime.js",
+    "validate:hooks": "node src/scripts/validate-react-hooks.js",
+    "debug:setup": "node src/scripts/debug-homepage-errors.js",
+    "validate:all": "npm run validate:deps && npm run validate:imports && npm run validate:runtime",
+    "lint": "eslint src --ext .ts,.tsx,.js,.jsx --fix",
+    "lint:check": "eslint src --ext .ts,.tsx,.js,.jsx",
+    "type-check": "tsc --noEmit",
+    "install:deps": "node src/scripts/validate-dependencies.js --install",
+    "test:deps": "npm run test -- --testPathPattern=dependencyTests",
+    "prestart": "npm run validate:all",
+    "prebuild": "npm run validate:all",
+    "precommit": "npm run lint:check && npm run type-check && npm run validate:all"
   },
   "browserslist": {
     "production": [

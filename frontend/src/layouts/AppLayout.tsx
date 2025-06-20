@@ -12,11 +12,14 @@ import {
   X,
   Bell,
   User,
-  Home
+  Home,
+  BarChart3,
+  BookOpen
 } from 'lucide-react';
 import { RootState } from '../shared/store/store';
 import { toggleSidebar, toggleChatPanel } from '../shared/store/uiSlice';
 import { useAuth } from '../shared/hooks/useAuth';
+import AIPersonalityWidget from '../components/AIPersonalityWidget';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -28,22 +31,25 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { user, organization, logout } = useAuth();
   
   const { sidebarOpen, chatPanelOpen } = useSelector((state: RootState) => state.ui);
-  const notifications = useSelector((state: RootState) => state.ui.notifications);
+  const notifications = useSelector((state: RootState) => state.ui?.notifications || []);
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Foundation' },
     { path: '/organization', icon: Users, label: 'Organization' },
     { path: '/indicators', icon: Target, label: 'Indicators' },
+    { path: '/benchmarking', icon: BarChart3, label: 'Peer Benchmarking' },
+    { path: '/knowledge', icon: BookOpen, label: 'Knowledge Hub' },
     { path: '/chat', icon: MessageSquare, label: 'Chat' },
+    { path: '/ai-personality-demo', icon: MessageSquare, label: 'AI Personality Demo' },
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/approvals', icon: CheckSquare, label: 'Approvals' },
   ];
 
   const isActivePath = (path: string) => {
     if (path === '/') {
-      return location.pathname === '/';
+      return location?.pathname === '/';
     }
-    return location.pathname.startsWith(path);
+    return location?.pathname?.startsWith(path) || false;
   };
 
   return (
@@ -238,6 +244,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* AI Personality Widget - Show on specific pages */}
+      {(location?.pathname?.includes('/foundation') || 
+        location?.pathname?.includes('/indicators') || 
+        location?.pathname?.includes('/organization')) && (
+        <AIPersonalityWidget position="bottom-right" />
       )}
     </div>
   );
