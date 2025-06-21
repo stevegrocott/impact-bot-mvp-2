@@ -23,56 +23,65 @@ const testUsers: TestUser[] = [
   {
     email: 'admin@impact-bot.com',
     password: 'AdminTest123!',
-    firstName: 'System',
-    lastName: 'Administrator',
+    firstName: 'Super',
+    lastName: 'Admin',
     jobTitle: 'Platform Administrator',
     role: SystemRoles.SUPER_ADMIN,
     organizationName: 'Impact Bot Platform'
   },
   {
-    email: 'orgadmin@demo.org',
+    email: 'orgadmin@impact-bot.com',
     password: 'OrgAdmin123!',
     firstName: 'Organization',
     lastName: 'Admin',
     jobTitle: 'Executive Director',
     role: SystemRoles.ORG_ADMIN,
-    organizationName: 'Demo Foundation'
+    organizationName: 'Impact Bot'
   },
   {
-    email: 'manager@demo.org',
+    email: 'manager@impact-bot.com',
     password: 'Manager123!',
     firstName: 'Impact',
     lastName: 'Manager',
-    jobTitle: 'Impact Director',
+    jobTitle: 'Program Manager',
     role: SystemRoles.IMPACT_MANAGER,
-    organizationName: 'Demo Foundation'
+    organizationName: 'Impact Bot'
   },
   {
-    email: 'analyst@demo.org',
+    email: 'analyst@impact-bot.com',
     password: 'Analyst123!',
-    firstName: 'Data',
+    firstName: 'Impact',
     lastName: 'Analyst',
     jobTitle: 'Impact Analyst',
     role: SystemRoles.IMPACT_ANALYST,
-    organizationName: 'Demo Foundation'
+    organizationName: 'Impact Bot'
   },
   {
-    email: 'viewer@demo.org',
+    email: 'viewer@impact-bot.com',
     password: 'Viewer123!',
     firstName: 'Report',
     lastName: 'Viewer',
     jobTitle: 'Program Officer',
     role: SystemRoles.REPORT_VIEWER,
-    organizationName: 'Demo Foundation'
+    organizationName: 'Impact Bot'
   },
   {
-    email: 'evaluator@external.com',
+    email: 'evaluator@impact-bot.com',
     password: 'Evaluator123!',
     firstName: 'External',
     lastName: 'Evaluator',
     jobTitle: 'Independent Evaluator',
     role: SystemRoles.EXTERNAL_EVALUATOR,
-    organizationName: 'Independent Evaluation Services'
+    organizationName: 'Impact Bot'
+  },
+  {
+    email: 'demo@impact-bot.com',
+    password: 'Demo123!',
+    firstName: 'Demo',
+    lastName: 'User',
+    jobTitle: 'Demonstration Account',
+    role: SystemRoles.IMPACT_ANALYST,
+    organizationName: 'Impact Bot'
   }
 ];
 

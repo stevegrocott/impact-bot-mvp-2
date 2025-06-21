@@ -380,7 +380,12 @@ export class AuthController {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          jobTitle: user.jobTitle
+          jobTitle: user.jobTitle,
+          role: {
+            id: selectedOrganization.role.id,
+            name: selectedOrganization.role.name,
+            permissions: selectedOrganization.role.permissions
+          }
         },
         organization: {
           id: selectedOrganization.organization.id,
@@ -400,6 +405,7 @@ export class AuthController {
             name: uo.role.name
           }
         })),
+        permissions: selectedOrganization.role.permissions,
         token,
         expiresIn: '24h'
       }
@@ -505,7 +511,8 @@ export class AuthController {
           id: req.user.id,
           email: req.user.email,
           firstName: req.user.firstName,
-          lastName: req.user.lastName
+          lastName: req.user.lastName,
+          role: req.organization?.role || null
         },
         organization: req.organization ? {
           id: req.organization.id,
@@ -520,7 +527,8 @@ export class AuthController {
             id: org.role.id,
             name: org.role.name
           }
-        }))
+        })),
+        permissions: req.organization?.role?.permissions || []
       }
     });
   }
@@ -892,6 +900,288 @@ export class AuthController {
   }
 
   /**
+   * Accept organization invitation
+   */
+  async acceptInvitation(req: Request, res: Response): Promise<void> {
+    const { token, firstName, lastName, password } = req.body;
+
+    if (!token) {
+      throw new ValidationError('Invitation token is required');
+    }
+
+    if (!firstName || !lastName) {
+      throw new ValidationError('First name and last name are required');
+    }
+
+    if (!password) {
+      throw new ValidationError('Password is required');
+    }
+
+    // Validate password strength
+    const passwordValidation = this.validatePasswordStrength(password);
+    if (!passwordValidation.valid) {
+      throw new ValidationError(`Password requirements not met: ${passwordValidation.feedback.join(', ')}`);
+    }
+
+    try {
+      // Find invitation by token
+      let invitation: any = null;
+      let organization: any = null;
+
+      // Search through all organizations for the invitation token
+      const organizations = await prisma.organization.findMany({
+        where: {
+          isActive: true
+        }
+      });
+
+      for (const org of organizations) {
+        const settings = org.settings as any || {};
+        const invitations = settings.pendingInvitations || [];
+        const foundInvitation = invitations.find((inv: any) => inv.token === token);
+        
+        if (foundInvitation) {
+          invitation = foundInvitation;
+          organization = org;
+          break;
+        }
+      }
+
+      if (!invitation || !organization) {
+        throw new ValidationError('Invalid or expired invitation token');
+      }
+
+      // Check if invitation is expired
+      if (new Date() > new Date(invitation.expiresAt)) {
+        throw new ValidationError('Invitation has expired');
+      }
+
+      // Check if invitation is still pending
+      if (invitation.status !== 'pending') {
+        throw new ValidationError('Invitation has already been processed');
+      }
+
+      // Check if user already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email: invitation.email }
+      });
+
+      if (existingUser) {
+        // If user exists, just add them to the organization
+        const existingMembership = await prisma.userOrganization.findUnique({
+          where: {
+            userId_organizationId: {
+              userId: existingUser.id,
+              organizationId: organization.id
+            }
+          }
+        });
+
+        if (existingMembership) {
+          throw new ValidationError('User is already a member of this organization');
+        }
+
+        // Add existing user to organization
+        await prisma.userOrganization.create({
+          data: {
+            id: uuidv4(),
+            userId: existingUser.id,
+            organizationId: organization.id,
+            roleId: invitation.roleId,
+            isPrimary: false
+          }
+        });
+
+        // Mark invitation as accepted
+        const currentSettings = organization.settings as any || {};
+        const invitations = currentSettings.pendingInvitations || [];
+        const updatedInvitations = invitations.map((inv: any) => 
+          inv.token === token ? { ...inv, status: 'accepted', acceptedAt: new Date().toISOString() } : inv
+        );
+
+        await prisma.organization.update({
+          where: { id: organization.id },
+          data: {
+            settings: {
+              ...currentSettings,
+              pendingInvitations: updatedInvitations
+            }
+          }
+        });
+
+        logger.info('Existing user accepted invitation', {
+          userId: existingUser.id,
+          organizationId: organization.id,
+          email: invitation.email
+        });
+
+        res.json({
+          success: true,
+          message: 'Invitation accepted successfully',
+          data: { userExists: true }
+        });
+
+      } else {
+        // Create new user and add to organization
+        const result = await prisma.$transaction(async (tx) => {
+          // Hash password
+          const saltRounds = 12;
+          const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+          // Create user
+          const newUser = await tx.user.create({
+            data: {
+              id: uuidv4(),
+              email: invitation.email,
+              firstName,
+              lastName,
+              passwordHash: hashedPassword,
+              isActive: true,
+              isEmailVerified: true, // Email verified through invitation
+              preferences: {}
+            }
+          });
+
+          // Add user to organization
+          const userOrganization = await tx.userOrganization.create({
+            data: {
+              id: uuidv4(),
+              userId: newUser.id,
+              organizationId: organization.id,
+              roleId: invitation.roleId,
+              isPrimary: true // First organization becomes primary
+            },
+            include: {
+              role: {
+                select: {
+                  id: true,
+                  name: true,
+                  permissions: true
+                }
+              }
+            }
+          });
+
+          return { user: newUser, userOrganization };
+        });
+
+        // Mark invitation as accepted
+        const currentSettings = organization.settings as any || {};
+        const invitations = currentSettings.pendingInvitations || [];
+        const updatedInvitations = invitations.map((inv: any) => 
+          inv.token === token ? { ...inv, status: 'accepted', acceptedAt: new Date().toISOString() } : inv
+        );
+
+        await prisma.organization.update({
+          where: { id: organization.id },
+          data: {
+            settings: {
+              ...currentSettings,
+              pendingInvitations: updatedInvitations
+            }
+          }
+        });
+
+        // Generate JWT token
+        const jwtToken = AuthService.generateToken(
+          result.user.id,
+          result.user.email,
+          organization.id,
+          invitation.roleId
+        );
+
+        // Prepare response data
+        const userData = {
+          id: result.user.id,
+          email: result.user.email,
+          firstName: result.user.firstName,
+          lastName: result.user.lastName,
+          isEmailVerified: result.user.isEmailVerified,
+          preferences: result.user.preferences,
+          organizationId: organization.id
+        };
+
+        const organizationData = {
+          id: organization.id,
+          name: organization.name,
+          isPrimary: true,
+          role: {
+            id: result.userOrganization.role.id,
+            name: result.userOrganization.role.name
+          }
+        };
+
+        logger.info('New user created and accepted invitation', {
+          userId: result.user.id,
+          organizationId: organization.id,
+          email: invitation.email
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Account created and invitation accepted successfully',
+          data: {
+            user: userData,
+            organization: organizationData,
+            organizations: [organizationData],
+            token: jwtToken,
+            expiresIn: '24h',
+            userExists: false
+          }
+        });
+      }
+
+    } catch (error) {
+      logger.error('Failed to accept invitation', { error, token });
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to validate password strength
+   */
+  private validatePasswordStrength(password: string): { valid: boolean; feedback: string[] } {
+    const feedback: string[] = [];
+    let score = 0;
+
+    // Check length
+    if (password.length >= 8) score += 1;
+    else feedback.push('Password should be at least 8 characters long');
+
+    // Check for uppercase
+    if (/[A-Z]/.test(password)) score += 1;
+    else feedback.push('Include at least one uppercase letter');
+
+    // Check for lowercase
+    if (/[a-z]/.test(password)) score += 1;
+    else feedback.push('Include at least one lowercase letter');
+
+    // Check for numbers
+    if (/\d/.test(password)) score += 1;
+    else feedback.push('Include at least one number');
+
+    // Check for special characters
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score += 1;
+    else feedback.push('Include at least one special character');
+
+    // Check for common patterns
+    if (password.toLowerCase().includes('password')) {
+      score -= 1;
+      feedback.push('Avoid using the word "password"');
+    }
+
+    if (/123|abc|qwerty/i.test(password)) {
+      score -= 1;
+      feedback.push('Avoid common patterns like "123" or "abc"');
+    }
+
+    return {
+      valid: score >= 4 && feedback.length === 0,
+      feedback
+    };
+  }
+
+  /**
    * Check password strength
    */
   async checkPasswordStrength(req: Request, res: Response): Promise<void> {
@@ -902,48 +1192,26 @@ export class AuthController {
     }
 
     try {
-      const feedback: string[] = [];
+      const validation = this.validatePasswordStrength(password);
       let score = 0;
 
-      // Check length
+      // Calculate score for feedback
       if (password.length >= 8) score += 1;
-      else feedback.push('Password should be at least 8 characters long');
-
-      // Check for uppercase
       if (/[A-Z]/.test(password)) score += 1;
-      else feedback.push('Include at least one uppercase letter');
-
-      // Check for lowercase
       if (/[a-z]/.test(password)) score += 1;
-      else feedback.push('Include at least one lowercase letter');
-
-      // Check for numbers
       if (/\d/.test(password)) score += 1;
-      else feedback.push('Include at least one number');
-
-      // Check for special characters
       if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score += 1;
-      else feedback.push('Include at least one special character');
 
-      // Check for common patterns
-      if (password.toLowerCase().includes('password')) {
-        score -= 1;
-        feedback.push('Avoid using the word "password"');
-      }
-
-      if (/123|abc|qwerty/i.test(password)) {
-        score -= 1;
-        feedback.push('Avoid common patterns like "123" or "abc"');
-      }
-
-      const isValid = score >= 4 && feedback.length === 0;
+      // Deduct for common patterns
+      if (password.toLowerCase().includes('password')) score -= 1;
+      if (/123|abc|qwerty/i.test(password)) score -= 1;
 
       res.json({
         success: true,
         data: {
           score: Math.max(0, Math.min(5, score)),
-          feedback,
-          isValid
+          feedback: validation.feedback,
+          isValid: validation.valid
         }
       });
     } catch (error) {

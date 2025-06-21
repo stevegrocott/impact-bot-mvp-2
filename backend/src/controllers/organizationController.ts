@@ -9,6 +9,7 @@ import { prisma } from '@/config/database';
 import { AppError, ValidationError } from '@/utils/errors';
 import { logger } from '@/utils/logger';
 import { validateEmail } from '@/utils/validation';
+import { emailService } from '@/services/emailService';
 
 export class OrganizationController {
   /**
@@ -604,10 +605,19 @@ export class OrganizationController {
         throw new AppError('Access denied to this organization', 403, 'ACCESS_DENIED');
       }
 
-      // Verify the role exists
-      const targetRole = await prisma.role.findUnique({
-        where: { id: roleId }
-      });
+      // Verify the role exists - handle both ID and name lookup
+      let targetRole;
+      try {
+        // First try as UUID
+        targetRole = await prisma.role.findUnique({
+          where: { id: roleId }
+        });
+      } catch (error) {
+        // If not a valid UUID, try by name
+        targetRole = await prisma.role.findUnique({
+          where: { name: roleId }
+        });
+      }
 
       if (!targetRole) {
         throw new ValidationError('Invalid role specified');
@@ -691,18 +701,17 @@ export class OrganizationController {
           }
         });
       } else {
-        // Create invitation for new user
-        // For now, we'll create a placeholder invitation record
-        // In a full implementation, this would send an email invitation
-        
+        // Create invitation for new user and send email
         const invitationId = uuidv4();
+        const invitationToken = uuidv4(); // Secure token for invitation acceptance
         
-        // Store invitation in organization settings or create an invitations table
+        // Store invitation in organization settings
         const currentSettings = organization.settings as any || {};
         const invitations = currentSettings.pendingInvitations || [];
         
         const invitation = {
           id: invitationId,
+          token: invitationToken,
           email: email.toLowerCase(),
           roleId,
           roleName: targetRole.name,
@@ -716,6 +725,7 @@ export class OrganizationController {
         
         invitations.push(invitation);
         
+        // Update organization with invitation record
         await prisma.organization.update({
           where: { id: organizationId },
           data: {
@@ -726,17 +736,41 @@ export class OrganizationController {
           }
         });
 
-        logger.info('User invitation created', {
+        // Send invitation email
+        const emailData = {
+          inviteeEmail: email.toLowerCase(),
+          inviterName: invitation.invitedByName || req.user!.email,
+          organizationName: organization.name,
+          invitationToken: invitationToken,
+          roleName: targetRole.name,
+          message: message,
+          expiresAt: invitation.expiresAt
+        };
+
+        const emailSent = await emailService.sendInvitationEmail(emailData);
+        
+        if (!emailSent) {
+          logger.warn('Failed to send invitation email', {
+            organizationId,
+            email,
+            invitationId
+          });
+        }
+
+        logger.info('User invitation created and email sent', {
           organizationId,
           email,
           role: targetRole.name,
           invitationId,
+          emailSent,
           invitedBy: req.user!.id
         });
 
         res.status(201).json({
           success: true,
-          message: 'Invitation created successfully',
+          message: emailSent 
+            ? 'Invitation sent successfully' 
+            : 'Invitation created (email delivery pending)',
           data: {
             invitation: {
               id: invitationId,
@@ -749,7 +783,8 @@ export class OrganizationController {
               message,
               status: 'pending',
               expiresAt: invitation.expiresAt,
-              invitedBy: invitation.invitedByName
+              invitedBy: invitation.invitedByName,
+              emailSent
             }
           }
         });

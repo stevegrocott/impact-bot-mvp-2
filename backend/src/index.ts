@@ -90,11 +90,7 @@ class Server {
 
     // Body parsing
     this.app.use(express.json({ 
-      limit: '10mb',
-      verify: (req, res, buf) => {
-        // Store raw body for webhook verification if needed
-        (req as any).rawBody = buf;
-      }
+      limit: '10mb'
     }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

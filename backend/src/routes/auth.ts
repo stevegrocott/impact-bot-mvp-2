@@ -39,6 +39,9 @@ router.get('/password-reset/validate/:token', asyncHandler(authController.valida
 router.post('/logout-all', optionalAuth, asyncHandler(authController.logoutFromAllDevices.bind(authController)));
 router.post('/password-strength', asyncHandler(authController.checkPasswordStrength.bind(authController)));
 
+// Invitation endpoints
+router.post('/invitation/accept', asyncHandler(authController.acceptInvitation.bind(authController)));
+
 // Legacy endpoints (keep for backward compatibility)
 router.post('/verify-email', asyncHandler(authController.verifyEmail.bind(authController)));
 router.post('/forgot-password', asyncHandler(authController.requestPasswordReset.bind(authController)));
