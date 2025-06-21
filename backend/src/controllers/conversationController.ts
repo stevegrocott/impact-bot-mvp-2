@@ -554,7 +554,7 @@ export class ConversationController {
       );
 
       // Save recommendations to database
-      const conversation = await this.createConversation(
+      const conversation = await this.createConversationInternal(
         authReq.user.id,
         authReq.user.organizationId,
         'IRIS+ Recommendations Generated'
@@ -982,14 +982,14 @@ export class ConversationController {
    * Create conversation with detailed information
    */
   private async createConversationWithDetails(userId: string, organizationId: string, title?: string, firstMessage?: string): Promise<ConversationWithDetails> {
-    const conversation = await this.createConversation(userId, organizationId, title, firstMessage);
+    const conversation = await this.createConversationInternal(userId, organizationId, title, firstMessage);
     return this.getConversationWithDetails(conversation.id, userId);
   }
 
   /**
-   * Create new conversation with auto-naming
+   * Create new conversation with auto-naming (private helper)
    */
-  private async createConversation(userId: string, organizationId: string, title?: string, firstMessage?: string) {
+  private async createConversationInternal(userId: string, organizationId: string, title?: string, firstMessage?: string) {
     const conversation = await prisma.conversation.create({
       data: {
         id: uuidv4(),
@@ -1216,6 +1216,37 @@ The title should capture the main topic or intent related to impact measurement 
     return `${basePrompt}\n\n${typeSpecificPrompts[conversationType as keyof typeof typeSpecificPrompts] || typeSpecificPrompts.general}`;
   }
 
+  /**
+   * Create a new conversation (public endpoint)
+   */
+  async createConversation(req: Request, res: Response): Promise<void> {
+    if (!isAuthenticatedRequest(req)) {
+      throw new AppError('Authentication required', 401, 'NOT_AUTHENTICATED');
+    }
+
+    const { type = 'general', contextData } = req.body;
+
+    try {
+      const conversation = await this.createConversationWithDetails(
+        req.user.id,
+        req.user.organizationId,
+        undefined,
+        undefined
+      );
+
+      res.json({
+        id: conversation.id,
+        title: conversation.title,
+        type: conversation.conversationType,
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt
+      });
+    } catch (error) {
+      logger.error('Failed to create conversation', { error, userId: req.user.id });
+      throw new AppError('Failed to create conversation', 500, 'CONVERSATION_CREATION_FAILED');
+    }
+  }
+
 }
 
 // Create controller instance with bound methods
@@ -1229,3 +1260,6 @@ export const generateRecommendations = asyncHandler(conversationController.gener
 export const deleteConversation = asyncHandler(conversationController.deleteConversation.bind(conversationController));
 export const renameConversation = asyncHandler(conversationController.renameConversation.bind(conversationController));
 export const generateConversationTitle = asyncHandler(conversationController.generateConversationTitle.bind(conversationController));
+export const createConversation = asyncHandler(conversationController.createConversation.bind(conversationController));
+export const getConversation = asyncHandler(conversationController.getConversation.bind(conversationController));
+export const sendMessage = asyncHandler(conversationController.sendMessage.bind(conversationController));

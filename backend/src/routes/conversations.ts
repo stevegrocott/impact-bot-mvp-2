@@ -138,4 +138,44 @@ router.post(
   conversationController.generateConversationTitle
 );
 
+/**
+ * @route POST /api/conversations
+ * @desc Create a new conversation
+ * @access Private
+ */
+router.post(
+  '/',
+  validateRequest(Joi.object({
+    type: Joi.string().default('general'),
+    contextData: Joi.object().optional()
+  })),
+  conversationController.createConversation
+);
+
+/**
+ * @route GET /api/conversations/:conversationId
+ * @desc Get a specific conversation
+ * @access Private
+ */
+router.get(
+  '/:conversationId',
+  conversationController.getConversation
+);
+
+/**
+ * @route POST /api/conversations/:conversationId/messages
+ * @desc Send a message to a conversation
+ * @access Private
+ * @rateLimit 30 requests per minute per user
+ */
+router.post(
+  '/:conversationId/messages',
+  rateLimitMiddleware({ windowMs: 60 * 1000, max: 30, keyGenerator: 'user' }),
+  validateRequest(Joi.object({
+    message: Joi.string().min(1).max(5000).required(),
+    messageType: Joi.string().valid('user', 'assistant', 'system').optional()
+  })),
+  conversationController.sendMessage
+);
+
 export default router;

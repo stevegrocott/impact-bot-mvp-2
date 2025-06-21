@@ -86,27 +86,65 @@ export async function seedTestUsers(): Promise<void> {
       return;
     }
 
-    // Clear existing test users if they exist
+    // Clear existing test users if they exist (cascade delete to handle foreign key constraints)
     const testEmails = testUsers.map(u => u.email);
-    await prisma.userOrganization.deleteMany({
-      where: {
-        user: {
-          email: {
-            in: testEmails
-          }
-        }
-      }
-    });
     
-    await prisma.user.deleteMany({
+    // First, get user IDs that need to be cleaned up
+    const existingUsers = await prisma.user.findMany({
       where: {
         email: {
           in: testEmails
         }
-      }
+      },
+      select: { id: true }
     });
     
-    logger.info('Cleared existing test users');
+    const userIds = existingUsers.map(u => u.id);
+    
+    if (userIds.length > 0) {
+      // Delete theory of change data that references users 
+      await prisma.organizationTheoryOfChange.deleteMany({
+        where: {
+          createdBy: {
+            in: userIds
+          }
+        }
+      });
+      
+      // Delete decision evolution data
+      await prisma.decisionEvolution.deleteMany({
+        where: {
+          changedBy: {
+            in: userIds
+          }
+        }
+      });
+      
+      // DecisionQuestion doesn't have createdBy, so skip this cleanup
+      // The cascade delete from organization cleanup will handle it
+      
+      // Delete user organization relationships
+      await prisma.userOrganization.deleteMany({
+        where: {
+          userId: {
+            in: userIds
+          }
+        }
+      });
+      
+      // Now safe to delete users
+      await prisma.user.deleteMany({
+        where: {
+          id: {
+            in: userIds
+          }
+        }
+      });
+      
+      logger.info(`Cleared ${userIds.length} existing test users and their data`);
+    } else {
+      logger.info('No existing test users found to clear');
+    }
 
     // Create test users and organizations
     for (const testUser of testUsers) {

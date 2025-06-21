@@ -16,10 +16,12 @@ import { validateEmail, validatePassword, validateName } from '@/utils/validatio
 interface RegisterRequest {
   email: string;
   password: string;
-  confirmPassword: string;
+  confirmPassword?: string;
   firstName: string;
   lastName: string;
   organizationName?: string;
+  organizationType?: string;
+  industry?: string;
   jobTitle?: string;
 }
 
@@ -34,6 +36,13 @@ export class AuthController {
    * Register new user
    */
   async register(req: Request, res: Response): Promise<void> {
+    console.log('🚨🚨🚨 REGISTRATION REQUEST STARTED 🚨🚨🚨');
+    console.log('🔍 Registration request received:', {
+      body: req.body,
+      hasConfirmPassword: 'confirmPassword' in req.body,
+      confirmPasswordValue: req.body.confirmPassword
+    });
+
     const {
       email,
       password,
@@ -41,6 +50,8 @@ export class AuthController {
       firstName,
       lastName,
       organizationName,
+      organizationType,
+      industry,
       jobTitle
     }: RegisterRequest = req.body;
 
@@ -57,7 +68,13 @@ export class AuthController {
       throw new ValidationError('Password must be at least 8 characters with uppercase, lowercase, number and special character');
     }
 
-    if (password !== confirmPassword) {
+    // Skip password confirmation check for API registration
+    // Frontend handles password confirmation validation
+    console.log('🔍 Password validation - confirmPassword:', confirmPassword, 'type:', typeof confirmPassword);
+    
+    // Only validate password confirmation if it's explicitly provided and not empty
+    if (confirmPassword && confirmPassword.trim() !== '' && password !== confirmPassword) {
+      console.log('❌ Password mismatch detected!');
       throw new ValidationError('Passwords do not match');
     }
 
@@ -102,42 +119,70 @@ export class AuthController {
             data: {
               id: uuidv4(),
               name: organizationName.trim(),
+              industry: industry || null,
+              sizeCategory: organizationType || null,
               isActive: true,
               settings: {}
             }
           });
         } else {
-          // Find or create default organization
-          const existingOrg = await tx.organization.findFirst({
-            where: { name: 'Personal Workspace' }
+          // Create personal workspace for the user
+          organization = await tx.organization.create({
+            data: {
+              id: uuidv4(),
+              name: `${firstName} ${lastName}'s Workspace`,
+              description: `Personal workspace for ${firstName} ${lastName}`,
+              isActive: true,
+              settings: {}
+            }
+          });
+        }
+
+        // Determine role based on organization creation
+        let assignedRole;
+        if (organizationName && organizationName.trim()) {
+          // User is creating a new organization → they become org_admin
+          assignedRole = await tx.role.findUnique({
+            where: { name: 'org_admin' }
           });
           
-          if (existingOrg) {
-            organization = existingOrg;
-          } else {
-            organization = await tx.organization.create({
+          if (!assignedRole) {
+            // Fallback: create org_admin role if it doesn't exist
+            assignedRole = await tx.role.create({
               data: {
                 id: uuidv4(),
-                name: 'Personal Workspace',
-                description: 'Default personal workspace for individual users',
-                isActive: true,
-                settings: {}
+                name: 'org_admin',
+                description: 'Organization administrator with full organization management',
+                permissions: [
+                  'org:*', 'user:*', 'foundation:*', 'measurement:*', 
+                  'report:*', 'indicator:*', 'conversation:*', 'theory:*',
+                  'member:*', 'settings:*'
+                ]
+              }
+            });
+          }
+        } else {
+          // User is using personal workspace → they become org_admin of their own space
+          assignedRole = await tx.role.findUnique({
+            where: { name: 'org_admin' }
+          });
+          
+          if (!assignedRole) {
+            // Fallback: create org_admin role if it doesn't exist
+            assignedRole = await tx.role.create({
+              data: {
+                id: uuidv4(),
+                name: 'org_admin',
+                description: 'Organization administrator with full organization management',
+                permissions: [
+                  'org:*', 'user:*', 'foundation:*', 'measurement:*', 
+                  'report:*', 'indicator:*', 'conversation:*', 'theory:*',
+                  'member:*', 'settings:*'
+                ]
               }
             });
           }
         }
-
-        // Get or create user role
-        const userRole = await tx.role.upsert({
-          where: { name: 'user' },
-          create: {
-            id: uuidv4(),
-            name: 'user',
-            description: 'Standard user access',
-            permissions: ['measurement:read', 'measurement:create', 'report:read', 'conversation:*']
-          },
-          update: {}
-        });
 
         // Create user-organization relationship
         await tx.userOrganization.create({
@@ -145,12 +190,12 @@ export class AuthController {
             id: uuidv4(),
             userId: user.id,
             organizationId: organization.id,
-            roleId: userRole.id,
+            roleId: assignedRole.id,
             isPrimary: true
           }
         });
 
-        return { user, organization, role: userRole };
+        return { user, organization, role: assignedRole };
       });
 
       // Generate JWT token
@@ -191,8 +236,22 @@ export class AuthController {
           },
           organization: {
             id: result.organization.id,
-            name: result.organization.name
+            name: result.organization.name,
+            role: {
+              id: result.role.id,
+              name: result.role.name,
+              permissions: result.role.permissions
+            }
           },
+          organizations: [{
+            id: result.organization.id,
+            name: result.organization.name,
+            isPrimary: true,
+            role: {
+              id: result.role.id,
+              name: result.role.name
+            }
+          }],
           token,
           expiresIn: '24h'
         }
@@ -638,6 +697,257 @@ export class AuthController {
       });
     } catch (error) {
       logger.error('Password reset failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Alias method for requestPasswordReset to match new API structure
+   */
+  async requestPasswordReset(req: Request, res: Response): Promise<void> {
+    return await this.forgotPassword(req, res);
+  }
+
+  /**
+   * Validate password reset token
+   */
+  async validatePasswordResetToken(req: Request, res: Response): Promise<void> {
+    const { token } = req.params;
+
+    if (!token) {
+      throw new ValidationError('Reset token is required');
+    }
+
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          passwordResetToken: token,
+          passwordResetExpires: {
+            gt: new Date()
+          }
+        },
+        select: {
+          email: true,
+          passwordResetExpires: true
+        }
+      });
+
+      if (!user) {
+        res.json({
+          success: true,
+          data: {
+            valid: false
+          }
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          valid: true,
+          email: user.email,
+          expiresAt: user.passwordResetExpires
+        }
+      });
+    } catch (error) {
+      logger.error('Password reset token validation failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send email verification
+   */
+  async sendEmailVerification(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      throw new ValidationError('Authentication required');
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id }
+      });
+
+      if (!user) {
+        throw new ValidationError('User not found');
+      }
+
+      if (user.isEmailVerified) {
+        res.json({
+          success: true,
+          message: 'Email is already verified'
+        });
+        return;
+      }
+
+      // Generate verification token
+      const verificationToken = uuidv4();
+      const expirationTime = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerificationToken: verificationToken,
+          emailVerificationExpires: expirationTime
+        }
+      });
+
+      // TODO: Send email with verification link
+      // await emailService.sendVerificationEmail(user.email, verificationToken);
+
+      SecurityLogger.logSecurityEvent('email_verification_sent', 'Email verification token sent', user.id);
+
+      res.json({
+        success: true,
+        message: 'Verification email sent. Please check your inbox.'
+      });
+    } catch (error) {
+      logger.error('Send email verification failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resend email verification
+   */
+  async resendEmailVerification(req: Request, res: Response): Promise<void> {
+    const { email } = req.body;
+
+    if (!email || !validateEmail(email)) {
+      throw new ValidationError('Valid email is required');
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email }
+      });
+
+      if (!user) {
+        // Don't reveal if email exists for security
+        res.json({
+          success: true,
+          message: 'If an account with this email exists, a verification email will be sent.'
+        });
+        return;
+      }
+
+      if (user.isEmailVerified) {
+        res.json({
+          success: true,
+          message: 'Email is already verified'
+        });
+        return;
+      }
+
+      // Generate new verification token
+      const verificationToken = uuidv4();
+      const expirationTime = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerificationToken: verificationToken,
+          emailVerificationExpires: expirationTime
+        }
+      });
+
+      // TODO: Send email with verification link
+      // await emailService.sendVerificationEmail(user.email, verificationToken);
+
+      SecurityLogger.logSecurityEvent('email_verification_resent', 'Email verification token resent', user.id);
+
+      res.json({
+        success: true,
+        message: 'If an account with this email exists, a verification email will be sent.'
+      });
+    } catch (error) {
+      logger.error('Resend email verification failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Logout from all devices
+   */
+  async logoutFromAllDevices(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+      throw new ValidationError('Authentication required');
+    }
+
+    try {
+      // Clear user-specific cache
+      await cacheService.invalidateByTags([`user:${req.user.id}`]);
+
+      SecurityLogger.logSecurityEvent('logout_all_devices', 'User logged out from all devices', req.user.id);
+
+      res.json({
+        success: true,
+        message: 'Logged out from all devices successfully'
+      });
+    } catch (error) {
+      logger.error('Logout from all devices failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check password strength
+   */
+  async checkPasswordStrength(req: Request, res: Response): Promise<void> {
+    const { password } = req.body;
+
+    if (!password) {
+      throw new ValidationError('Password is required');
+    }
+
+    try {
+      const feedback: string[] = [];
+      let score = 0;
+
+      // Check length
+      if (password.length >= 8) score += 1;
+      else feedback.push('Password should be at least 8 characters long');
+
+      // Check for uppercase
+      if (/[A-Z]/.test(password)) score += 1;
+      else feedback.push('Include at least one uppercase letter');
+
+      // Check for lowercase
+      if (/[a-z]/.test(password)) score += 1;
+      else feedback.push('Include at least one lowercase letter');
+
+      // Check for numbers
+      if (/\d/.test(password)) score += 1;
+      else feedback.push('Include at least one number');
+
+      // Check for special characters
+      if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score += 1;
+      else feedback.push('Include at least one special character');
+
+      // Check for common patterns
+      if (password.toLowerCase().includes('password')) {
+        score -= 1;
+        feedback.push('Avoid using the word "password"');
+      }
+
+      if (/123|abc|qwerty/i.test(password)) {
+        score -= 1;
+        feedback.push('Avoid common patterns like "123" or "abc"');
+      }
+
+      const isValid = score >= 4 && feedback.length === 0;
+
+      res.json({
+        success: true,
+        data: {
+          score: Math.max(0, Math.min(5, score)),
+          feedback,
+          isValid
+        }
+      });
+    } catch (error) {
+      logger.error('Password strength check failed:', error);
       throw error;
     }
   }

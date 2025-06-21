@@ -111,6 +111,7 @@ class Server {
   private setupRoutes(): void {
     // Health check endpoint (no auth required)
     this.app.get('/health', async (req, res) => {
+      console.log('🔥 Health check called - code changes are active!');
       const health = await this.getHealthStatus();
       const statusCode = health.status === 'healthy' ? 200 : 503;
       res.status(statusCode).json(health);

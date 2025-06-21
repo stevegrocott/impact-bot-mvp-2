@@ -1,0 +1,10 @@
+{
+  "email": "newuser@test.com",
+  "password": "NewUser123!",
+  "firstName": "New",
+  "lastName": "User",
+  "jobTitle": "Test Manager",
+  "organizationName": "Test Organization",
+  "organizationType": "Nonprofit Organization",
+  "industry": "Education"
+}
